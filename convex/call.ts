@@ -67,11 +67,20 @@ export const attachVapiId = internalMutation({
 /**
  * Writes the transcript from the end-of-call report.
  * Matches on the Vapi call id because the webhook knows nothing else.
+ *
+ * `structured` is Vapi's own post-call extraction, shaped by the JSON schema set
+ * on the assistant. It is logged rather than parsed until a real payload shows
+ * what the dashboard schema produces.
  */
-export const recordTranscript = internalMutation({
-  args: { vapiCallId: v.string(), transcript: v.string(), ended: v.string() },
+export const complete = internalMutation({
+  args: {
+    vapiCallId: v.string(),
+    transcript: v.string(),
+    ended: v.string(),
+    structured: v.optional(v.any()),
+  },
   returns: v.null(),
-  handler: async (ctx, { vapiCallId, transcript, ended }) => {
+  handler: async (ctx, { vapiCallId, transcript, ended, structured }) => {
     const call = await ctx.db
       .query('calls')
       .withIndex('by_vapiCallId', (q) => q.eq('vapiCallId', vapiCallId))
@@ -85,6 +94,7 @@ export const recordTranscript = internalMutation({
       stage: status === 'complete' ? ('ready-for-review' as const) : ('awaiting-call' as const),
     })
     console.log(`[call] ${vapiCallId} ${status}, ended as ${ended}`)
+    if (structured) console.log(`[call] structured ${JSON.stringify(structured)}`)
     return null
   },
 })

@@ -5,7 +5,7 @@ import { internal } from './_generated/api'
 /**
  * Vapi posts here when a call ends. Set the same URL as the assistant's server
  * URL in the dashboard:
- *   https://<deployment>.convex.site/vapi/webhook
+ *   https://<deployment>.convex.site/vapi
  */
 
 const http = httpRouter()
@@ -14,13 +14,13 @@ interface EndOfCallReport {
   message?: {
     type?: string
     endedReason?: string
-    call?: { id?: string }
+    call?: { id?: string; artifact?: { structuredOutputs?: unknown } }
     artifact?: { transcript?: string }
   }
 }
 
 http.route({
-  path: '/vapi/webhook',
+  path: '/vapi',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     const secret = process.env.VAPI_SERVER_SECRET
@@ -37,10 +37,11 @@ http.route({
     const vapiCallId = message.call?.id
     if (!vapiCallId) return new Response('no call id', { status: 400 })
 
-    await ctx.runMutation(internal.call.recordTranscript, {
+    await ctx.runMutation(internal.call.complete, {
       vapiCallId,
       transcript: message.artifact?.transcript ?? '',
       ended: message.endedReason ?? 'unknown',
+      structured: message.call?.artifact?.structuredOutputs,
     })
 
     return new Response(null, { status: 200 })
