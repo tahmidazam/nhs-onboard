@@ -23,6 +23,8 @@ function fact(over: Partial<ProfileFact> = {}): ProfileFact {
 function profile(over: Partial<PatientProfile> = {}): PatientProfile {
   return {
     patientId: 'p1',
+    // 629 whole months before the clock below, so the age and the birthDate agree.
+    birthDate: '1974-03-15',
     asOf: '2026-09-12T08:00:00Z',
     ageYears: 52,
     ageMonths: 629,
@@ -257,6 +259,20 @@ describe('applyRules', () => {
       url: 'https://www.gov.uk/primary',
       quote: 'The primary line',
     })
+  })
+
+  it('carries an outcome secondary citations through in order', () => {
+    // ADR 15: the matched guide rows travel with the recommendation. Dropping
+    // them at this boundary is the ADR violated in effect, however the rule
+    // behaves.
+    const extras = [
+      { url: 'https://www.gov.uk/guidance/bangladesh-migrant-health-guide', quote: 'The first row' },
+      { url: 'https://www.gov.uk/guidance/bangladesh-migrant-health-guide', quote: 'The second row' },
+    ]
+
+    const emitted = applyRules(profile(), [rule(recommends([{ ...oneRec, extraCitations: extras }]))])
+
+    assert.deepEqual(emitted[0]?.kind === 'recommendation' && emitted[0].rec.extraCitations, extras)
   })
 
   it('produces the same outcome set for a shuffled pack', () => {

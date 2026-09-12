@@ -95,7 +95,14 @@ export interface Gap {
   priority?: number
 }
 
-export type RecommendationKind = 'prescription' | 'referral' | 'screening' | 'immunisation' | 'test'
+/** 'task' is the sim's create_task: an action at a site that books no slot. */
+export type RecommendationKind =
+  | 'prescription'
+  | 'referral'
+  | 'screening'
+  | 'immunisation'
+  | 'test'
+  | 'task'
 
 /** Sim site that owns the resource once written back. */
 export type SimTarget = 'pharmacy' | 'referrals' | 'diagnostics' | 'gp'
@@ -110,6 +117,11 @@ export interface Recommendation {
   confidence: Confidence
   evidence: SourceRef[]
   citation?: { url: string; quote: string }
+  /**
+   * Behind the primary, never displacing it: the matched country guide row
+   * travels here. See ADR 15.
+   */
+  extraCitations?: Array<{ url: string; quote: string }>
   target: SimTarget
   simResourceId?: string
   status: 'proposed' | 'approved' | 'dismissed'

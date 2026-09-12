@@ -18,10 +18,10 @@ export const rule: Rule = {
   /**
    * The sim's Action.type enum holds nothing orientation-shaped, so this lands
    * as a create_task at gp, which consumes none of the site's six bookable
-   * slots. `kind` stays 'referral' because RecommendationKind has no task
-   * member; the target is what routes it. See ADR 5's target table.
+   * slots. `kind` says what the action is and `target` says where it goes; this
+   * is not a referral in either sense. See ADR 5's target table.
    */
-  kind: 'referral',
+  kind: 'task',
   target: 'gp',
   /** Lowest: a call has five questions in it and this rule asks none. */
   priority: 3,

@@ -14,9 +14,23 @@ import type { ImmunisationFact, PatientProfile, RuleOutcome } from './types'
 
 const ASOF = '2026-09-12T08:00:00Z'
 
+/**
+ * The birthDate that many whole months before the clock, on the same day of
+ * month, so a fixture's age and its birthDate state the same thing.
+ */
+function bornMonthsBefore(ageMonths: number): string {
+  const clock = new Date(ASOF)
+  return new Date(
+    Date.UTC(clock.getUTCFullYear(), clock.getUTCMonth() - ageMonths, clock.getUTCDate()),
+  )
+    .toISOString()
+    .slice(0, 10)
+}
+
 function profile(over: Partial<PatientProfile> = {}): PatientProfile {
   return {
     patientId: 'SIM-000001',
+    birthDate: bornMonthsBefore(over.ageMonths ?? 412),
     asOf: ASOF,
     ageYears: 34,
     ageMonths: 412,

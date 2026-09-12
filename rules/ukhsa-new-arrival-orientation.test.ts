@@ -12,10 +12,16 @@ import type { PatientProfile, RuleOutcome } from './types'
 
 const AS_OF = '2026-09-12T08:00:00Z'
 
+/** Born the same month and day as AS_OF, so the patient is exactly `ageYears` on it. */
+function bornYearsBefore(ageYears: number): string {
+  return `${2026 - ageYears}-09-12`
+}
+
 /** Deliberately empty: the point of this rule is that it needs no record. */
 function thin(country: string, ageYears: number): PatientProfile {
   return {
     patientId: 'SIM-000001',
+    birthDate: bornYearsBefore(ageYears),
     asOf: AS_OF,
     ageYears,
     ageMonths: ageYears * 12,
@@ -68,6 +74,8 @@ describe('ukhsa-new-arrival-orientation', () => {
     // The sim has no orientation action and gp holds six bookable slots, so this
     // lands as a create_task at gp. See ADR 5's target table and the sim skill.
     assert.equal(rule.target, 'gp')
+    // Not a referral: nobody is being referred anywhere. See #12.
+    assert.equal(rule.kind, 'task')
   })
 
   it('templates no recommendation text from the guide row it quotes', () => {

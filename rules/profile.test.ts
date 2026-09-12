@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import type { Claim } from '../src/types'
-import { buildProfile } from './profile'
+import { ageFact, buildProfile } from './profile'
 
 /**
  * The profile builder. See #13.
@@ -40,6 +40,10 @@ describe('buildProfile', () => {
 
     assert.equal(profile.patientId, 'p1')
     assert.equal(profile.country, 'BD')
+  })
+
+  it('carries the birthDate through, so an age-driven rule can quote it', () => {
+    assert.equal(buildProfile(patient, [], asOf).birthDate, '1974-03-15')
   })
 
   it('leaves sex absent, because the sim holds none', () => {
@@ -213,5 +217,19 @@ describe('buildProfile', () => {
 
     assert.equal(profile.immunisations[0]?.synthesised, true)
     assert.equal(profile.conditions[0]?.synthesised, false)
+  })
+})
+
+describe('ageFact', () => {
+  it('quotes the birthDate verbatim from the sim record', () => {
+    // ADR 14: age read from the frozen snapshot is a claim like any other, and
+    // the quote is the record's own line rather than a sentence about the age.
+    assert.deepEqual(ageFact(buildProfile(patient, [], asOf)), {
+      key: 'age',
+      verbatim: '1974-03-15',
+      confidence: 'document-evidenced',
+      source: { kind: 'sim-record', id: 'p1', quote: '1974-03-15' },
+      synthesised: false,
+    })
   })
 })

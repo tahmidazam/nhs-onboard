@@ -1,4 +1,5 @@
-import type { PatientProfile, ProfileFact, Rule, RuleOutcome } from './types'
+import { ageFact } from './profile'
+import type { PatientProfile, Rule, RuleOutcome } from './types'
 
 /**
  * Bowel cancer screening. Age alone decides it, and the age comes from the sim's
@@ -11,27 +12,6 @@ import type { PatientProfile, ProfileFact, Rule, RuleOutcome } from './types'
 /** Inclusive, both ends. From the quoted invitation range, not from the pack. */
 const FIRST_INVITED_AGE = 50
 const LAST_INVITED_AGE = 74
-
-/**
- * The age as a fact the engine can bucket. ADR 14 treats age read from the
- * frozen snapshot as a claim like any other, `sim-record` and so
- * `document-evidenced`. PatientProfile exposes the arithmetic rather than the
- * birthDate it came from, so the quote names the age and the clock it was taken
- * against: both are checkable against the sim record the id points at.
- */
-function ageFact(profile: PatientProfile): ProfileFact {
-  return {
-    key: 'age',
-    verbatim: `${profile.ageYears} years`,
-    confidence: 'document-evidenced',
-    source: {
-      kind: 'sim-record',
-      id: profile.patientId,
-      quote: `aged ${profile.ageYears} as of ${profile.asOf}`,
-    },
-    synthesised: false,
-  }
-}
 
 export const rule: Rule = {
   id: 'nhs-screen-bowel',

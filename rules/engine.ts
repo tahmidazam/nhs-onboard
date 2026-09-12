@@ -67,6 +67,9 @@ function emit(rule: Rule, outcome: RuleOutcome): EmittedOutcome {
       // The primary citation is the rule's. An outcome may add secondary ones
       // but never displace it. See ADR 15.
       citation: rule.citations[0],
+      // Omitted rather than undefined, so a rule that adds none produces the
+      // same row it always did.
+      ...(outcome.extraCitations === undefined ? {} : { extraCitations: outcome.extraCitations }),
       target: rule.target,
       ruleId: rule.id,
       outputKey: outcome.outputKey,

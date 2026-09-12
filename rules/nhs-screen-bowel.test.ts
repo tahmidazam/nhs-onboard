@@ -13,9 +13,15 @@ import type { PatientProfile, RuleOutcome } from './types'
 /** The frozen sim clock, per ADR 11. Every age below is stated, never computed. */
 const AS_OF = '2026-09-12T08:00:00Z'
 
+/** Born the same month and day as AS_OF, so the patient is exactly `ageYears` on it. */
+function bornYearsBefore(ageYears: number): string {
+  return `${2026 - ageYears}-09-12`
+}
+
 function aged(ageYears: number): PatientProfile {
   return {
     patientId: 'SIM-000001',
+    birthDate: bornYearsBefore(ageYears),
     asOf: AS_OF,
     ageYears,
     ageMonths: ageYears * 12,
@@ -64,6 +70,14 @@ describe('nhs-screen-bowel', () => {
     assert.equal(age?.source.kind, 'sim-record')
     assert.equal(age?.source.id, 'SIM-000001')
     assert.equal(age?.synthesised, false)
+  })
+
+  it('quotes the birthDate itself rather than a sentence about the age', () => {
+    // The quote is the whole of what a clinician can check, so it has to be the
+    // record's own line. See ADR 14 and ageFact in rules/profile.ts.
+    const [age] = recommendation(rule.evaluate(aged(52))[0]).consumed
+    assert.equal(age?.source.quote, '1974-09-12')
+    assert.equal(age?.verbatim, '1974-09-12')
   })
 
   it('declares no confidence floor, so the bucket comes from the evidence', () => {

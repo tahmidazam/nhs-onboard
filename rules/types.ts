@@ -48,6 +48,13 @@ export interface ImmunisationFact extends ProfileFact {
 /** What a rule reads. Rules never read Claims directly. */
 export interface PatientProfile {
   patientId: string
+  /**
+   * From the sim record, verbatim. Required, because it is the quote an
+   * age-driven rule rests on: `ageYears` is arithmetic we did, and a sentence
+   * about it is not a quote from the record. See ADR 14 and ageFact in
+   * rules/profile.ts.
+   */
+  birthDate: string
   /** Frozen simulation clock. Every age below derives from it. */
   asOf: string
   ageYears: number

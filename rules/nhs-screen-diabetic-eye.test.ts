@@ -28,9 +28,15 @@ function condition(verbatim: string, overrides: Partial<ProfileFact> = {}): Prof
   }
 }
 
+/** Born the same month and day as AS_OF, so the patient is exactly `ageYears` on it. */
+function bornYearsBefore(ageYears: number): string {
+  return `${2026 - ageYears}-09-12`
+}
+
 function profile(ageYears: number, conditions: ProfileFact[]): PatientProfile {
   return {
     patientId: 'SIM-000001',
+    birthDate: bornYearsBefore(ageYears),
     asOf: AS_OF,
     ageYears,
     ageMonths: ageYears * 12,

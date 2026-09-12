@@ -85,6 +85,28 @@ function toImmunisationFact(
 }
 
 /**
+ * Age as a fact a rule can consume. ADR 14 treats age read from the frozen
+ * snapshot as a claim like any other, `sim-record` and so `document-evidenced`.
+ *
+ * The quote is the patient's own birthDate, verbatim from the record. "Aged 52
+ * as of 2026-09-12" would be a sentence we composed, and this fact sits under
+ * the one recommendation the pack writes back, where the quote is the whole of
+ * what a clinician can check.
+ *
+ * It lives beside the projection rather than in a rule, so every age-driven
+ * rule rests on the same fact rather than its own copy of one.
+ */
+export function ageFact(profile: PatientProfile): ProfileFact {
+  return {
+    key: 'age',
+    verbatim: profile.birthDate,
+    confidence: 'document-evidenced',
+    source: { kind: 'sim-record', id: profile.patientId, quote: profile.birthDate },
+    synthesised: false,
+  }
+}
+
+/**
  * `synthesisedDocumentIds` names the documents we generated rather than derived
  * from the sim record. It is a parameter because a Claim does not carry the flag
  * and this module does not read documents. See ADR 8.
@@ -102,6 +124,7 @@ export function buildProfile(
 
   return {
     patientId: patient.patientId,
+    birthDate: patient.birthDate,
     asOf,
     ageYears: Math.floor(ageMonths / 12),
     ageMonths,

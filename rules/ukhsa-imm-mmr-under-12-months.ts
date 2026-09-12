@@ -40,9 +40,10 @@ function isMeaslesContaining(fact: ImmunisationFact): boolean {
  * algorithm branches on the patient's own date of birth, not on that date:
  * "If born before 1 January 2020, catch up MMR components using MMR."
  *
- * The profile carries no birthDate, so the cohort is derived from the frozen
- * clock and the patient's age in months. That is month-precise, which is enough
- * for a boundary six years in the past.
+ * The cohort is derived from the frozen clock and the age in months rather than
+ * from the profile's birthDate, because months are the unit every dose on a
+ * card is measured in here and month precision settles a boundary six years in
+ * the past.
  */
 function bornFrom2020(profile: PatientProfile): boolean {
   const asOf = new Date(profile.asOf)

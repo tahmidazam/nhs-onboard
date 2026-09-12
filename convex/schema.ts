@@ -15,6 +15,8 @@ const sourceRef = v.object({
   quote: v.string(),
 })
 
+const citation = v.object({ url: v.string(), quote: v.string() })
+
 export default defineSchema({
   /** Drives the board. */
   patients: defineTable({
@@ -114,12 +116,18 @@ export default defineSchema({
       v.literal('screening'),
       v.literal('immunisation'),
       v.literal('test'),
+      v.literal('task'),
     ),
     title: v.string(),
     rationale: v.string(),
     confidence,
     evidence: v.array(sourceRef),
-    citation: v.optional(v.object({ url: v.string(), quote: v.string() })),
+    citation: v.optional(citation),
+    /**
+     * Behind the primary, never displacing it: the matched country guide row
+     * travels here. See ADR 15.
+     */
+    extraCitations: v.optional(v.array(citation)),
     target: v.union(
       v.literal('pharmacy'),
       v.literal('referrals'),

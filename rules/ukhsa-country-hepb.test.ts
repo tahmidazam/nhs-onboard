@@ -20,6 +20,8 @@ const AS_OF = '2026-09-12T08:00:00Z'
 function from(country: string): PatientProfile {
   return {
     patientId: 'SIM-000001',
+    // Exactly 34 on the clock: nothing here reads the age, but the two must agree.
+    birthDate: '1992-09-12',
     asOf: AS_OF,
     ageYears: 34,
     ageMonths: 34 * 12,
