@@ -1,15 +1,18 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { RouterProvider } from '@tanstack/react-router'
 import { ConvexProvider, ConvexReactClient } from 'convex/react'
 import './index.css'
-import App from './App'
+import { router } from './router'
+import { Toaster } from '@/components/ui/toast'
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string)
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ConvexProvider client={convex}>
-      <App />
+      <RouterProvider router={router} />
+      <Toaster />
     </ConvexProvider>
   </React.StrictMode>,
 )

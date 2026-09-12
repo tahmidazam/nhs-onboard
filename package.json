@@ -26,7 +26,8 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
   },
   "name": "nhs-onboard",
   "private": true,
@@ -40,7 +41,8 @@
     "data:export-idd": "bash scripts/export-idd.sh",
     "data:dmd": "tsx scripts/parse-dmd.ts",
     "deploy:convex": "convex deploy",
-    "data:countries": "tsx scripts/parse-country-guides.ts"
+    "data:countries": "tsx scripts/parse-country-guides.ts",
+    "test": "vitest run"
   },
   "packageManager": "pnpm@11.22.0"
 }
