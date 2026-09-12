@@ -18,36 +18,37 @@ export default function App() {
   )
   const register = useMutation(api.call.register)
 
-  if (patient === undefined) return null
-
-  if (patient === null) {
-    return (
-      <div className="flex flex-col gap-4 p-8 max-w-2xl">
-        <h1 className="text-lg">NHS Onboard</h1>
-        <Alert>
-          <AlertTitle>No patient to call yet.</AlertTitle>
-          <AlertDescription>
-            The sim adapter and the rule pack are not wired up, so seed one patient and the
-            gaps a call would close.
-          </AlertDescription>
-        </Alert>
-        <div>
-          <Button onClick={() => void seed({})}>Create the demo patient</Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="flex flex-col gap-6 p-8 max-w-2xl">
       <h1 className="text-lg">NHS Onboard</h1>
-      <CallPanel
-        patientName={patient.name}
-        goals={questions ?? []}
-        onCallStarted={async (vapiCallId) => {
-          await register({ patientId: patient._id, vapiCallId })
-        }}
-      />
+
+      {patient === undefined ? (
+        <p className="text-sm text-muted-foreground">
+          Reading the patient list. If this does not clear, the browser cannot reach Convex:
+          check VITE_CONVEX_URL and that convex dev is running.
+        </p>
+      ) : patient === null ? (
+        <>
+          <Alert>
+            <AlertTitle>No patient to call yet.</AlertTitle>
+            <AlertDescription>
+              The sim adapter and the rule pack are not wired up, so seed one patient and the
+              gaps a call would close.
+            </AlertDescription>
+          </Alert>
+          <div>
+            <Button onClick={() => void seed({})}>Create the demo patient</Button>
+          </div>
+        </>
+      ) : (
+        <CallPanel
+          patientName={patient.name}
+          goals={questions ?? []}
+          onCallStarted={async (vapiCallId) => {
+            await register({ patientId: patient._id, vapiCallId })
+          }}
+        />
+      )}
     </div>
   )
 }
