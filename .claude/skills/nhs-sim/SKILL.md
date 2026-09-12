@@ -37,8 +37,13 @@ GET /api/nhs/pds/Patient/{id}                  FHIR R4 Patient
 GET /api/clock                                 simulation time
 ```
 
-Page size on `/patients` is fixed at 30. `/view` returns `resources[]` with
-`resourceTotal`, `resourceOffset` and `resourceLimit`, defaulting to 500.
+`/patients` returns `{ items, total }`, page size fixed at 30, `offset` only.
+An item carries `id`, `name`, `birthDate`, `conditions`, `needs`, `goals` and
+`localIds`.
+
+`/view` returns `resources[]` with `resourceTotal`, `resourceOffset` and
+`resourceLimit` in the response. The query params are `limit` and `offset`,
+defaulting to 500 and capped at 500.
 
 ## Writing
 
