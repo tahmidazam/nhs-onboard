@@ -1,7 +1,7 @@
 'use node'
 
 import { v } from 'convex/values'
-import { Agent, run as runAgent, setDefaultOpenAIKey } from '@openai/agents'
+import { Agent, getDefaultModel, run as runAgent, setDefaultOpenAIKey } from '@openai/agents'
 import { action } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
@@ -34,8 +34,16 @@ import type { ClaimKind, Confidence } from '../src/types'
  * `anchor` decides whether it holds.
  */
 
-/** Per ADR 6 the strong model. Overridable per deployment without a code change. */
-const MODEL = process.env.EXTRACTION_MODEL
+/**
+ * Per ADR 6 the strong model. Overridable per deployment without a code change.
+ *
+ * Resolved to a name here rather than left unset for the SDK to fill, so that a
+ * recorded run can say which model produced it. An `Agent` built without
+ * `model` runs on whatever the installed SDK version defaults to, which a
+ * dependency bump changes with no line of this repo changing, and a transcript
+ * that cannot name its model answers the wrong half of the question.
+ */
+const MODEL = process.env.EXTRACTION_MODEL ?? getDefaultModel()
 
 const summary = v.object({
   /** True when stored document claims were reused and no model call was made. */
@@ -175,15 +183,94 @@ function messageOf(error: unknown): string {
   return (error instanceof Error ? error.message : String(error)).slice(0, 500)
 }
 
+/* -------------------------------------------------------------------------- */
+/* Recording the call.                                                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Convex caps a document at 1MB and a recorded run holds three strings, the
+ * longest of which is a document the degrader wrote. Clipping says so in the
+ * text: a transcript that quietly lost its tail is worse than one that admits
+ * where it stops.
+ */
+const LIMIT = 24_000
+
+function clip(value: string): string {
+  if (value.length <= LIMIT) return value
+  return `${value.slice(0, LIMIT)}\n[clipped at ${LIMIT} characters]`
+}
+
+/** The fields of one recorded run, as convex/extractDb.ts stores them. */
+interface RunRecord {
+  patientId: Id<'patients'>
+  documentId: Id<'documents'>
+  agent: string
+  model: string
+  attempts: number
+  durationMs: number
+  instructions: string
+  input: string
+  output?: string
+  items?: number
+  responseId?: string
+  inputTokens?: number
+  outputTokens?: number
+  error?: string
+}
+
+/**
+ * What the run cost, summed across turns. An agent with no tools and no handoff
+ * takes exactly one, so the sum is a formality that stays correct if either
+ * changes. Absent fields mean the SDK reported none, which is not the same as
+ * zero and should not be shown as it.
+ */
+function spendOf(
+  responses: readonly {
+    usage?: { inputTokens?: number; outputTokens?: number }
+    responseId?: string
+  }[],
+): { responseId?: string; inputTokens?: number; outputTokens?: number } {
+  if (responses.length === 0) return {}
+  const inputTokens = responses.reduce((total, r) => total + (r.usage?.inputTokens ?? 0), 0)
+  const outputTokens = responses.reduce((total, r) => total + (r.usage?.outputTokens ?? 0), 0)
+  /** The last turn's id: the one the dashboard trace opens on. */
+  const responseId = responses[responses.length - 1]?.responseId
+
+  return {
+    ...(responseId ? { responseId } : {}),
+    ...(inputTokens ? { inputTokens } : {}),
+    ...(outputTokens ? { outputTokens } : {}),
+  }
+}
+
+/**
+ * Writes one transcript, and swallows its own failure.
+ *
+ * Deliberate: recording sits beside extraction rather than inside it, so a
+ * write that fails cannot demote a call that returned claims into a call the
+ * patient row reports as failed. The console line is the fallback, and the
+ * missing row is visible as a gap in a sheet that shows sixteen.
+ */
+async function record(ctx: ActionCtx, run: RunRecord): Promise<void> {
+  try {
+    await ctx.runMutation(internal.extractDb.recordRun, run)
+  } catch (error) {
+    console.error(`[extract] could not record ${run.agent} on ${run.documentId}: ${messageOf(error)}`)
+  }
+}
+
 /**
  * One retry, and no more. A third attempt buys little against a model that has
  * refused twice, and costs the demo the latency it can least afford.
+ *
+ * The attempt count comes back with the value because the recorded run should
+ * be able to say whether the first call held. See ADR 19.
  */
-async function withRetry<T>(attempt: () => Promise<T>): Promise<T> {
+async function withRetry<T>(attempt: () => Promise<T>): Promise<{ result: T; attempts: number }> {
   try {
-    return await attempt()
+    return { result: await attempt(), attempts: 1 }
   } catch {
-    return await attempt()
+    return { result: await attempt(), attempts: 2 }
   }
 }
 
@@ -203,13 +290,34 @@ async function extractOne(
     name: definition.name,
     instructions: definition.prompt,
     outputType: definition.outputType,
-    ...(MODEL ? { model: MODEL } : {}),
+    model: MODEL,
   })
+
+  /** What both paths record, so a failed call reads as the same kind of thing. */
+  const sent = {
+    patientId,
+    documentId: document._id,
+    agent: definition.name,
+    model: MODEL,
+    instructions: clip(definition.prompt),
+    input: clip(document.text),
+  }
+  const started = Date.now()
 
   try {
     /** Static instructions at the front, the document at the back, per ADR 6. */
-    const output = await withRetry(async () => (await runAgent(agent, document.text)).finalOutput)
-    const drafts = itemsOf(output).map((item) => toDraft(definition, item, document))
+    const { result, attempts } = await withRetry(() => runAgent(agent, document.text))
+    const items = itemsOf(result.finalOutput)
+    await record(ctx, {
+      ...sent,
+      attempts,
+      durationMs: Date.now() - started,
+      /** What the model returned, before anchoring or bucketing touched it. */
+      output: clip(JSON.stringify(result.finalOutput ?? null, null, 2)),
+      items: items.length,
+      ...spendOf(result.rawResponses),
+    })
+    const drafts = items.map((item) => toDraft(definition, item, document))
     if (drafts.length === 0) return { claims: 0, failed: false }
     const written: number = await ctx.runMutation(internal.extractDb.insertClaims, {
       patientId,
@@ -217,6 +325,13 @@ async function extractOne(
     })
     return { claims: written, failed: false }
   } catch (error) {
+    /** Both attempts are spent by the time anything reaches here. */
+    await record(ctx, {
+      ...sent,
+      attempts: 2,
+      durationMs: Date.now() - started,
+      error: messageOf(error),
+    })
     await ctx.runMutation(internal.extractDb.recordFailure, {
       patientId,
       documentId: document._id,

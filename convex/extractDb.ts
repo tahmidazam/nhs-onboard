@@ -1,5 +1,6 @@
 import { v } from 'convex/values'
-import { internalMutation, internalQuery } from './_generated/server'
+import { internalMutation, internalQuery, query } from './_generated/server'
+import schema from './schema'
 
 /**
  * The database half of extraction.
@@ -8,6 +9,10 @@ import { internalMutation, internalQuery } from './_generated/server'
  * @openai/agents, and a Node-runtime module can export actions only. Every read
  * and write the extraction action needs lives here, and nothing here calls a
  * model.
+ *
+ * One export is public rather than internal: `runsForPatient`, read by the
+ * extraction sheet. It sits here because it queries extraction's own table, and
+ * a second file holding one query would put extraction's reads in two places.
  */
 
 const claimKind = v.union(
@@ -91,7 +96,9 @@ export const documents = internalQuery({
  * the board is the claim count, which Convex is already reactive over.
  *
  * Clearing `extractionFailures` here rather than on completion means a run's
- * failures always belong to that run.
+ * failures always belong to that run. The recorded runs are cleared on the same
+ * argument: a transcript on screen describes the calls behind the claims on
+ * screen, and never a previous attempt's.
  */
 export const begin = internalMutation({
   args: { patientId: v.id('patients') },
@@ -99,6 +106,11 @@ export const begin = internalMutation({
   handler: async (ctx, { patientId }) => {
     const patient = await ctx.db.get(patientId)
     if (!patient) throw new Error(`No patient ${patientId}`)
+    const stale = await ctx.db
+      .query('agentRuns')
+      .withIndex('by_patient', (q) => q.eq('patientId', patientId))
+      .collect()
+    for (const run of stale) await ctx.db.delete(run._id)
     await ctx.db.patch(patientId, { stage: 'extracting', extractionFailures: undefined })
     return null
   },
@@ -170,5 +182,65 @@ export const clearDocumentClaims = internalMutation({
     const stale = claims.filter((claim) => claim.source.kind === 'document')
     for (const claim of stale) await ctx.db.delete(claim._id)
     return stale.length
+  },
+})
+
+/* -------------------------------------------------------------------------- */
+/* The recorded calls.                                                          */
+/* -------------------------------------------------------------------------- */
+
+/** The insert shape: every field of a run except the two Convex writes itself. */
+const runRecord = schema.doc('agentRuns').omit('_id', '_creationTime')
+
+/**
+ * One call, recorded whether it returned or failed. Per ADR 19 this is the
+ * record of the stage, and convex/extract.ts calls it outside the path that
+ * decides whether extraction succeeded: a transcript that fails to write must
+ * not turn a successful call into a failed one.
+ */
+export const recordRun = internalMutation({
+  args: runRecord.fields,
+  returns: v.null(),
+  handler: async (ctx, run) => {
+    await ctx.db.insert('agentRuns', run)
+    return null
+  },
+})
+
+/**
+ * Every recorded call for one patient, newest first, each naming the document
+ * it read. Public, and the only public export here: the extraction sheet opens
+ * on it.
+ *
+ * `begin` clears the table per patient, so a completed run holds sixteen rows
+ * at four documents. `take` bounds it anyway, because a run that fails partway
+ * leaves whatever it wrote and the query should not be the thing that discovers
+ * that.
+ */
+export const runsForPatient = query({
+  args: { patientId: v.id('patients') },
+  returns: v.array(
+    schema.doc('agentRuns').extend({
+      documentKind: v.optional(v.string()),
+      /** BCP-47, so the sheet renders a Bengali document in a face that carries it. */
+      documentLanguage: v.optional(v.string()),
+    }),
+  ),
+  handler: async (ctx, { patientId }) => {
+    const runs = await ctx.db
+      .query('agentRuns')
+      .withIndex('by_patient', (q) => q.eq('patientId', patientId))
+      .order('desc')
+      .take(64)
+
+    return await Promise.all(
+      runs.map(async (run) => {
+        const document = await ctx.db.get(run.documentId)
+        return {
+          ...run,
+          ...(document ? { documentKind: document.kind, documentLanguage: document.language } : {}),
+        }
+      }),
+    )
   },
 })
