@@ -19,7 +19,15 @@ interface StartOptions {
   patientName: string
 }
 
-export function useVapiCall() {
+interface UseVapiCallOptions {
+  /**
+   * Runs once Vapi returns the call id. Register the call here, or the
+   * end-of-call report arrives with no row to write into.
+   */
+  onStarted?: (vapiCallId: string) => void | Promise<void>
+}
+
+export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
   const vapiRef = useRef<Vapi | null>(null)
   const [status, setStatus] = useState<CallStatus>('idle')
   const [transcript, setTranscript] = useState<TranscriptLine[]>([])
@@ -77,18 +85,19 @@ export function useVapiCall() {
     setStatus('connecting')
 
     try {
-      await vapiRef.current.start(assistantId, {
+      const call = await vapiRef.current.start(assistantId, {
         /** The dashboard prompt reads {{goals}} and {{patientName}}. */
         variableValues: {
           goals: goals.map((g, i) => `${i + 1}. ${g}`).join('\n') || 'No open questions.',
           patientName,
         },
       })
+      if (call?.id) await onStarted?.(call.id)
     } catch (e) {
       setStatus('failed')
       setProblem(e instanceof Error ? e.message : 'The call could not start.')
     }
-  }, [])
+  }, [onStarted])
 
   const stop = useCallback(() => vapiRef.current?.stop(), [])
 

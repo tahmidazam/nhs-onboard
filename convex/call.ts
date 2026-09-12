@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { action, internalMutation, internalQuery } from './_generated/server'
+import { action, internalMutation, internalQuery, mutation } from './_generated/server'
 import { internal } from './_generated/api'
 
 /**
@@ -41,6 +41,28 @@ export const create = internalMutation({
   },
   returns: v.id('calls'),
   handler: async (ctx, args) => ctx.db.insert('calls', { ...args, channel: 'voice' as const }),
+})
+
+/**
+ * Registers a call the browser placed, so the end-of-call report has a row to
+ * write into. The phone path inserts its own row in `place`.
+ */
+export const register = mutation({
+  args: {
+    patientId: v.id('patients'),
+    vapiCallId: v.string(),
+    language: v.optional(v.string()),
+  },
+  returns: v.id('calls'),
+  handler: async (ctx, { patientId, vapiCallId, language }) =>
+    ctx.db.insert('calls', {
+      patientId,
+      vapiCallId,
+      language,
+      channel: 'voice',
+      status: 'in-progress',
+      gapIds: [],
+    }),
 })
 
 export const markFailed = internalMutation({

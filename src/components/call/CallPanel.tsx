@@ -12,6 +12,12 @@ interface CallPanelProps {
   patientName: string
   /** Gap questions. Passed to the assistant as {{goals}}. */
   goals: string[]
+  /**
+   * Runs once Vapi returns the call id. Wire this to `api.call.register` so the
+   * end-of-call report has a row to write into. Without it the call still runs
+   * and the transcript is discarded.
+   */
+  onCallStarted?: (vapiCallId: string) => void | Promise<void>
 }
 
 const STATUS_COPY = {
@@ -33,8 +39,10 @@ function languageName(tag: string): string {
   }
 }
 
-export function CallPanel({ patientName, goals }: CallPanelProps) {
-  const { status, transcript, language, problem, start, stop } = useVapiCall()
+export function CallPanel({ patientName, goals, onCallStarted }: CallPanelProps) {
+  const { status, transcript, language, problem, start, stop } = useVapiCall({
+    onStarted: onCallStarted,
+  })
   const live = status === 'connecting' || status === 'in-progress'
 
   return (
