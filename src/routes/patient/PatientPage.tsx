@@ -117,6 +117,7 @@ export function PatientPage() {
             <Typeset
               key={doc._id}
               title={formatDocumentKind(doc.kind)}
+              language={doc.language}
               action={doc.synthesised ? <Badge variant="outline">Synthesised</Badge> : undefined}
             >
               {doc.text}

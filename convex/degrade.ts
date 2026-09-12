@@ -3,12 +3,16 @@ import { action, internalMutation, internalQuery, query } from './_generated/ser
 import { internal } from './_generated/api'
 import type { Doc } from './_generated/dataModel'
 import { degradeRecord } from './lib/degradeRecord'
+import { applyBrandNames } from './lib/degradeBrand'
+import { translateLines } from './lib/degradeTranslate'
+import { sourceForCountry } from '../src/lib/sources'
 import type { PatientRecord } from '../src/types'
 
 /**
  * Turns a patient's frozen snapshot into PresentedDocuments and persists them.
  * The Convex layer stays thin: it reads the patient, calls the pure
- * degrader, and writes the result. See docs/adr/0010-degrader-is-template-driven.md.
+ * degrader, runs brand rendering and translation, and writes the result. See
+ * docs/adr/0010-degrader-is-template-driven.md.
  */
 
 const documentKind = v.union(
@@ -137,7 +141,32 @@ export const degrade = action({
 
     /** Seeded from the sim id, so the same patient degrades identically every run. */
     const { documents } = degradeRecord(record, patient.country, patient.simId)
-    const drafts = documents.map(({ kind, language, country, text }) => ({ kind, language, country, text }))
+
+    /** The country's primary language. Falls back to English when the source carries none. */
+    const language = sourceForCountry(patient.country)?.languages[0] ?? 'en'
+
+    const drafts = await Promise.all(
+      documents.map(async ({ kind, country, text, medicationNames }) => {
+        let lines = text.split('\n')
+
+        /** Brand rendering runs the mapping backwards, before translation. */
+        if (medicationNames && medicationNames.length > 0) {
+          const brandsByName: Record<string, string> = {}
+          for (const name of medicationNames) {
+            const brand: string | null = await ctx.runQuery(internal.brands.brandForGeneric, {
+              country: patient.country,
+              genericName: name,
+            })
+            if (brand) brandsByName[name] = brand
+          }
+          lines = applyBrandNames(lines, brandsByName)
+        }
+
+        if (language !== 'en') lines = await translateLines(lines, language)
+
+        return { kind, language, country, text: lines.join('\n') }
+      }),
+    )
 
     await ctx.runMutation(internal.degrade.replaceDocuments, { patientId, documents: drafts })
     return await ctx.runQuery(internal.degrade.existingDocuments, { patientId })

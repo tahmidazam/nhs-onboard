@@ -1,10 +1,16 @@
 import { v } from 'convex/values'
-import { internalMutation, query } from './_generated/server'
+import { internalAction, internalMutation, internalQuery, query } from './_generated/server'
 import type { QueryCtx } from './_generated/server'
+import { internal } from './_generated/api'
 
 /** Lookup key shared by the seeder and every caller. */
 export function normalise(raw: string): string {
   return raw.toLowerCase().replace(/[^a-z0-9]/g, '')
+}
+
+/** Normalised first word of a generic/composition string. Shares its rule with resolveBrand's stem. */
+export function genericKeyFor(generic: string): string {
+  return normalise(generic.split(/[ (]/)[0])
 }
 
 export interface Resolution {
@@ -166,6 +172,67 @@ export const insertCountryGuides = internalMutation({
   handler: async (ctx, { rows }) => {
     for (const row of rows) await ctx.db.insert('countryGuides', row)
     return rows.length
+  },
+})
+
+/**
+ * Runs the brand mapping backwards: given a country and a generic name from
+ * `patients.truth`, finds a brand from that country's dataset. Used by the
+ * degrader, never by the forward extraction path. See
+ * docs/adr/0010-degrader-is-template-driven.md.
+ */
+export const brandForGeneric = internalQuery({
+  args: { country: v.string(), genericName: v.string() },
+  returns: v.union(v.null(), v.string()),
+  handler: async (ctx, { country, genericName }) => {
+    const key = genericKeyFor(genericName)
+    if (!key) return null
+
+    const matches = await ctx.db
+      .query('brands')
+      .withIndex('by_country_and_genericKey', (q) =>
+        q.eq('country', country.toUpperCase()).eq('genericKey', key),
+      )
+      .take(20)
+
+    return matches.sort((a, b) => a.brand.length - b.brand.length)[0]?.brand ?? null
+  },
+})
+
+/** One page of the `genericKey` backfill. Idempotent, so re-running is harmless. */
+export const backfillGenericKeysBatch = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  returns: v.object({ isDone: v.boolean(), continueCursor: v.string(), patched: v.number() }),
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.db.query('brands').paginate({ numItems: 1000, cursor })
+    for (const row of page.page) {
+      await ctx.db.patch(row._id, { genericKey: genericKeyFor(row.generic) })
+    }
+    return { isDone: page.isDone, continueCursor: page.continueCursor, patched: page.page.length }
+  },
+})
+
+/**
+ * Backfills `genericKey` on every row seeded before that field existed. A
+ * one-off operator action, not part of `pnpm data:seed`.
+ */
+export const backfillGenericKeys = internalAction({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    let cursor: string | null = null
+    let total = 0
+    for (;;) {
+      const result: { isDone: boolean; continueCursor: string; patched: number } = await ctx.runMutation(
+        internal.brands.backfillGenericKeysBatch,
+        { cursor },
+      )
+      total += result.patched
+      if (result.isDone) break
+      cursor = result.continueCursor
+    }
+    console.log(`[brands] backfilled genericKey on ${total} rows`)
+    return total
   },
 })
 

@@ -2,6 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
+/* Inter has no Bengali or Devanagari, so a PresentedDocument in those scripts needs its own face. */
+@import "@fontsource/noto-sans-bengali";
+@import "@fontsource/noto-sans-devanagari";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -127,4 +130,12 @@
   html {
     @apply font-sans;
     }
+}
+
+/* Inter carries no Bengali or Devanagari. Typeset sets `lang` on a PresentedDocument's text. */
+[data-typeset][lang="bn"] {
+  font-family: 'Noto Sans Bengali', var(--font-sans);
+}
+[data-typeset][lang="hi"] {
+  font-family: 'Noto Sans Devanagari', var(--font-sans);
 }

@@ -21,6 +21,8 @@ export interface DegradedDocument {
   text: string
   /** Verbatim substrings of `record`'s truth arrays. Used by the containment test. */
   facts: string[]
+  /** Drug-name portion of each surviving medication. Set on prescription-list only. */
+  medicationNames?: string[]
 }
 
 export interface DegradeResult {
@@ -131,9 +133,15 @@ function degradeAllergies(allergies: string[], rng: () => number): CategoryResul
   return { lines, facts }
 }
 
-function degradeMedications(medications: string[], rng: () => number): CategoryResult {
+interface MedicationResult extends CategoryResult {
+  /** The drug-name portion of each surviving medication, for the brand rendering pass in #8. */
+  names: string[]
+}
+
+function degradeMedications(medications: string[], rng: () => number): MedicationResult {
   const lines: string[] = []
   const facts: string[] = []
+  const names: string[] = []
   for (const raw of medications) {
     if (rng() > LOSS_RATES.medication.survives) continue
     const { name, dose, frequency } = splitMedication(raw)
@@ -148,8 +156,9 @@ function degradeMedications(medications: string[], rng: () => number): CategoryR
     facts.push(name)
     if (keepDose) facts.push(dose)
     if (keepFrequency) facts.push(frequency)
+    names.push(name)
   }
-  return { lines, facts }
+  return { lines, facts, names }
 }
 
 function renderClinicLetter(record: PatientRecord, rng: () => number, conditionLines: string[], allergyLines: string[]): string {
@@ -207,6 +216,7 @@ export function degradeRecord(record: PatientRecord, country: string, seed: stri
       country,
       text: renderPrescriptionList(record, rng, medications.lines),
       facts: medications.facts,
+      medicationNames: medications.names,
     })
   }
 
