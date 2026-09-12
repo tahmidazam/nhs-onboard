@@ -6,6 +6,7 @@ import type { Doc, Id } from '../../../convex/_generated/dataModel'
 import { DataTable, SortableHeader } from '@/components/data-table/DataTable'
 import type { AppTableFeatures } from '@/components/data-table/features'
 import { RecoveryCell } from '@/components/recovery/RecoveryCell'
+import { CallCell } from '@/components/call/CallCell'
 import { formatDate, formatStage } from '@/lib/format'
 
 const PAGE_SIZE = 20
@@ -48,6 +49,11 @@ const staticColumns = columnHelper.columns([
       <SortableHeader label="Stage" sorted={column.getIsSorted()} onToggle={() => column.toggleSorting(column.getIsSorted() === 'asc')} />
     ),
     cell: ({ getValue }) => formatStage(getValue()),
+  }),
+  columnHelper.display({
+    id: 'call',
+    header: 'Call',
+    cell: ({ row }) => <CallCell patientId={row.original._id} patientName={row.original.name} />,
   }),
 ])
 
