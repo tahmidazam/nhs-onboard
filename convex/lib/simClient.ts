@@ -129,3 +129,29 @@ export async function viewPatient(patientId: string): Promise<SimResource[]> {
 export async function readClock(): Promise<SimClock> {
   return (await simFetch('/api/clock')) as SimClock
 }
+
+export interface SimActionResult {
+  id: string
+  kind: string
+  status: string
+  owner: string
+  version: number
+  provenance: unknown
+}
+
+/**
+ * Posts one action to a site and returns the resource it created.
+ * `Idempotency-Key` makes a retry of the same action safe: reuse the key to
+ * retry, mint a fresh one for a new action.
+ */
+export async function postAction(
+  site: string,
+  action: object,
+  idempotencyKey: string,
+): Promise<SimActionResult> {
+  return (await simFetch(`/api/sites/${site}/actions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
+    body: JSON.stringify(action),
+  })) as SimActionResult
+}
