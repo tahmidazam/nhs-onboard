@@ -27,6 +27,29 @@ const WAITING = {
   'in-progress': 'The call is running. The transcript is saved when it ends.',
 } as const
 
+/**
+ * Vapi's endedReason, in words. A transcript that stops mid-sentence looks the
+ * same however the call died, so name the cause rather than leave the reader
+ * guessing.
+ */
+const ENDED: Record<string, string> = {
+  'customer-ended-call': 'The patient hung up.',
+  'assistant-ended-call': 'The assistant ended the call.',
+  'silence-timed-out': 'The line went quiet and the call timed out.',
+  'customer-did-not-answer': 'Nobody answered.',
+  'exceeded-max-duration': 'The call hit its maximum duration.',
+  'pipeline-error': 'The call failed part way through.',
+}
+
+function endedAs(reason: string | undefined): string | null {
+  if (!reason) return null
+  if (ENDED[reason]) return ENDED[reason]
+  /** Anything to do with credit or billing stops the call without warning. */
+  if (/credit|balance|payment|billing/i.test(reason)) return 'The account ran out of credit.'
+  if (/error|failed/i.test(reason)) return `The call failed: ${reason}.`
+  return `Ended as ${reason}.`
+}
+
 export function StoredTranscript({ patientId, patientName }: StoredTranscriptProps) {
   const call = useQuery(api.call.latestCall, { patientId })
 
@@ -69,8 +92,11 @@ export function StoredTranscript({ patientId, patientName }: StoredTranscriptPro
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-baseline gap-2">
+      <div className="flex flex-wrap items-baseline gap-2">
         <h2 className="text-sm font-medium">Saved transcript</h2>
+        {endedAs(call.endedReason) ? (
+          <span className="text-xs text-muted-foreground">{endedAs(call.endedReason)}</span>
+        ) : null}
         {call.transcriptSource === 'live' ? (
           <span className="text-xs text-muted-foreground">
             Saved from the browser. Vapi's copy replaces it when it arrives.

@@ -100,6 +100,7 @@ export const latestCall = query({
       transcriptSource: v.optional(v.union(v.literal('live'), v.literal('report'))),
       /** Lets the UI say "ended, transcript on its way" instead of "still running". */
       ended: v.boolean(),
+      endedReason: v.optional(v.string()),
     }),
   ),
   handler: async (ctx, { patientId }) => {
@@ -115,6 +116,7 @@ export const latestCall = query({
       transcript: call.transcript,
       transcriptSource: call.transcriptSource,
       ended: call.endedAt !== undefined,
+      endedReason: call.endedReason,
     }
   },
 })
@@ -249,6 +251,7 @@ export const complete = internalMutation({
       status,
       transcriptSource: 'report',
       endedAt: call.endedAt ?? Date.now(),
+      endedReason: ended,
     })
     await ctx.db.patch(call.patientId, {
       stage: status === 'complete' ? ('ready-for-review' as const) : ('awaiting-call' as const),

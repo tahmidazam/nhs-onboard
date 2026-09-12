@@ -289,6 +289,12 @@ export default defineSchema({
     transcriptSource: v.optional(v.union(v.literal('live'), v.literal('report'))),
     /** Set when the call is known to be over, whatever the transcript is doing. */
     endedAt: v.optional(v.number()),
+    /**
+     * Vapi's endedReason, verbatim. A call that stops mid-sentence looks the
+     * same in the transcript whether the caller hung up, the line went silent
+     * or the account ran out of credit, and only this tells them apart.
+     */
+    endedReason: v.optional(v.string()),
     gapIds: v.array(v.id('gaps')),
   }).index('by_patient', ['patientId']).index('by_vapiCallId', ['vapiCallId']),
 })
