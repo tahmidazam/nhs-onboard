@@ -26,6 +26,7 @@ import type * as lib_simClient from "../lib/simClient.js";
 import type * as map from "../map.js";
 import type * as patients from "../patients.js";
 import type * as recovery from "../recovery.js";
+import type * as review from "../review.js";
 import type * as rules from "../rules.js";
 import type * as sim from "../sim.js";
 
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   map: typeof map;
   patients: typeof patients;
   recovery: typeof recovery;
+  review: typeof review;
   rules: typeof rules;
   sim: typeof sim;
 }>;

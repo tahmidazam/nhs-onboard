@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router'
 import { AppLayout } from './routes/AppLayout'
 import { Board } from './routes/board/Board'
+import { Review } from './routes/review/Review'
 import { Rules } from './routes/Rules'
 
 const rootRoute = createRootRoute({
@@ -24,7 +25,18 @@ const rulesRoute = createRoute({
   component: Rules,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, rulesRoute])
+/**
+ * The GP review screen for one patient. A sibling agent owns `/patient/:id`
+ * and the rest of `src/routes/patient/`; this route lives under
+ * `src/routes/review/` instead so the two branches touch different files.
+ */
+const reviewRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/patient/$id/review',
+  component: Review,
+})
+
+const routeTree = rootRoute.addChildren([indexRoute, rulesRoute, reviewRoute])
 
 export const router = createRouter({ routeTree })
 
