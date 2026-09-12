@@ -41,7 +41,13 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
       return
     }
 
-    const vapi = new Vapi(key)
+    let vapi: Vapi
+    try {
+      vapi = new Vapi(key)
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : 'The Vapi SDK failed to start.')
+      return
+    }
     vapiRef.current = vapi
 
     vapi.on('call-start', () => setStatus('in-progress'))
@@ -60,9 +66,17 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
       setProblem(typeof e?.message === 'string' ? e.message : 'The call failed.')
     })
 
+    /**
+     * StrictMode mounts, unmounts and remounts, so this runs against a call that
+     * never started. A throw here would unmount the whole tree.
+     */
     return () => {
-      vapi.stop()
-      vapi.removeAllListeners()
+      try {
+        vapi.stop()
+        vapi.removeAllListeners()
+      } catch {
+        /* nothing to stop */
+      }
       vapiRef.current = null
     }
   }, [])
