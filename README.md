@@ -7,21 +7,42 @@ evidence behind it.
 Read [CONTEXT.md](./CONTEXT.md) for the glossary and `docs/adr/` for the
 decisions. This file covers running the thing.
 
-## Running it
+## Onboarding
+
+### 1. Clone and install
+
+This repo uses **pnpm**.
+
 
 ```bash
-npm install
-cp .env.example .env.local
-npm run data:fetch
-npx convex dev      # terminal 1
-npm run dev         # terminal 2, serves :5173
+git clone https://github.com/tahmidazam/nhs-onboard && cd nhs-onboard
+pnpm install
 ```
 
-## Environment
+### 2. Install the Claude Code plugins
+
+Three skills ship inside this repo and load on clone: `nhs-sim`, `vapi-call` and
+`ui-conventions`, plus `unslop` for prose. Two more come from the official
+marketplace and need installing once per machine.
+
+```bash
+claude plugin install mattpocock-skills@claude-plugins-official
+claude plugin install convex@claude-plugins-official
+claude plugin list
+```
+
+`mattpocock-skills` gives `/grilling`, `/domain-modeling`, `/code-review` and
+`/diagnosing-bugs`. `convex` gives the Convex backend expert and reviewer.
+
+### 3. Environment
 
 Both developers use identical values for the shared block. `SIM_KEY` is the
-world. Different keys mean different 50,000-patient worlds. Fill in `.env.local`
-once and paste it into Discord.
+world, so different keys mean different 50,000-patient worlds. One person fills
+in `.env.local` and pastes the file into Discord.
+
+```bash
+cp .env.example .env.local
+```
 
 Team name is the join code. The same name returns the same key and world.
 
@@ -34,15 +55,58 @@ curl -s https://sim.animahacks.com/api/keys \
 Server secrets also need setting on the Convex deployment.
 
 ```bash
-npx convex env set OPENAI_API_KEY sk-...
-npx convex env set SIM_KEY sim-...
-npx convex env set SIM_ORIGIN https://sim.animahacks.com
-npx convex env set VAPI_PRIVATE_KEY ...
+pnpm exec convex env set OPENAI_API_KEY sk-...
+pnpm exec convex env set SIM_KEY sim-...
+pnpm exec convex env set SIM_ORIGIN https://sim.animahacks.com
+pnpm exec convex env set VAPI_PRIVATE_KEY ...
 ```
 
-Use one shared Convex dev deployment. Dev A runs `npx convex dev` first and
+Use one shared Convex dev deployment. Dev A runs `pnpm exec convex dev` first and
 shares `CONVEX_DEPLOYMENT` and `VITE_CONVEX_URL`. On separate deployments, Dev B
 has no ingested patients to test against.
+
+### 4. Reference data
+
+`data/` is gitignored. Some of it downloads, some comes from **the team Google
+Drive**.
+
+Downloads automatically:
+
+```bash
+pnpm data:fetch      # bd_medicines.csv, indian_medicines.csv, sim.json
+```
+
+Copy from Google Drive into `data/`:
+
+| File | Why it is not fetched |
+|---|---|
+| `formulary.json` | The formulary site sets `robots.txt` to `Disallow: /`. Scraped once. |
+| `idd.sqlite` | 51MB, built from a Mendeley spreadsheet. |
+| `dmd/` | dm+d 9.0.0 from TRUD, plus the BNF zip from the dmdbonus release. |
+
+Then build and load everything:
+
+```bash
+pnpm data:export-idd   # idd.sqlite to CSV
+pnpm data:dmd          # dm+d XML to data/dmd.json
+pnpm data:seed         # loads all of it into Convex
+```
+
+**One person runs `data:seed`, once.** You share a deployment, so running it
+twice duplicates every row.
+
+### 5. Run it
+
+```bash
+pnpm exec convex dev      # terminal 1
+pnpm dev         # terminal 2, serves :5173
+```
+
+### 6. Read before writing code
+
+`CONTEXT.md` holds the glossary. `docs/adr/` holds the decisions, and ADR 2 and
+ADR 3 constrain the mapping and review code directly. Then take your column
+below and the matching GitHub issue.
 
 ## How the work splits
 

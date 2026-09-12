@@ -56,7 +56,7 @@ Rationale lives in `docs/adr/`. Read the ADR before changing behaviour it covers
 
 ## Data sources
 
-All keyless, all under `data/`. `npm run data:fetch` pulls the large ones.
+All keyless, all under `data/`. `pnpm data:fetch` pulls the large ones.
 
 | File | Contents | Licence |
 |---|---|---|

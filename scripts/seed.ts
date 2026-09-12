@@ -1,8 +1,8 @@
 /**
  * Loads data/ into the Convex `brands` and `formulary` tables.
  *
- *   npm run data:fetch
- *   npm run data:seed
+ *   pnpm data:fetch
+ *   pnpm data:seed
  *
  * Run once per deployment. Both developers share one deployment, so one of you
  * runs it. Re-running duplicates rows.
@@ -89,7 +89,7 @@ async function seedInternational() {
 /** dm+d VTM to prescribable VMP. Produced by scripts/parse-dmd.ts. */
 async function seedDmd() {
   const path = 'data/dmd.json'
-  if (!existsSync(path)) return console.log('skip    dmd.json. Run: npx tsx scripts/parse-dmd.ts')
+  if (!existsSync(path)) return console.log('skip    dmd.json. Run: pnpm exec tsx scripts/parse-dmd.ts')
   const rows = JSON.parse(readFileSync(path, 'utf8')) as {
     key: string; vtmId: string; vtmName: string
     vmpId?: string; vmpName?: string; bnfCode?: string; atcCode?: string

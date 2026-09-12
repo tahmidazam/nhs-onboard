@@ -16,7 +16,8 @@
     "@vitejs/plugin-react": "^6.1.1",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
   },
   "name": "nhs-onboard",
   "private": true,
@@ -29,5 +30,6 @@
     "data:seed": "tsx scripts/seed.ts",
     "data:export-idd": "bash scripts/export-idd.sh",
     "data:dmd": "tsx scripts/parse-dmd.ts"
-  }
+  },
+  "packageManager": "pnpm@11.22.0"
 }

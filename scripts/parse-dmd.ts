@@ -2,8 +2,8 @@
  * Flattens dm+d VTM and VMP XML into data/dmd.json.
  *
  *   put f_vtm2_*.xml and f_vmp2_*.xml in data/dmd/
- *   npx tsx scripts/parse-dmd.ts
- *   npm run data:seed
+ *   pnpm exec tsx scripts/parse-dmd.ts
+ *   pnpm data:seed
  *
  * Streams by tag rather than building a DOM, so the VMP file's size does not
  * matter.

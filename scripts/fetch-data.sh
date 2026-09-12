@@ -20,7 +20,7 @@ fetch sim.json            "https://sim.animahacks.com/openapi.json"
 # The Cambridge and Peterborough formulary sets robots.txt to Disallow: /.
 # scripts/scrape-formulary.ts pulls it once; the result is cached here.
 if [ ! -f data/formulary.json ]; then
-  echo "missing data/formulary.json. Run: npx tsx scripts/scrape-formulary.ts"
+  echo "missing data/formulary.json. Run: pnpm exec tsx scripts/scrape-formulary.ts"
 fi
 
 ls -lh data/
