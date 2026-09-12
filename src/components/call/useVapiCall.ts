@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Vapi from '@vapi-ai/web'
+import VapiClass from '@vapi-ai/web'
+
+/**
+ * The package ships CommonJS with no exports map, so the bundler's interop puts
+ * the class under `.default`. Reading through it keeps both shapes working.
+ */
+const Vapi = ((VapiClass as unknown as { default?: typeof VapiClass }).default ??
+  VapiClass) as typeof VapiClass
+
+type VapiInstance = InstanceType<typeof VapiClass>
 
 /**
  * Drives one browser call. The assistant lives in the Vapi dashboard, so this
@@ -28,7 +37,7 @@ interface UseVapiCallOptions {
 }
 
 export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
-  const vapiRef = useRef<Vapi | null>(null)
+  const vapiRef = useRef<VapiInstance | null>(null)
   const [status, setStatus] = useState<CallStatus>('idle')
   const [transcript, setTranscript] = useState<TranscriptLine[]>([])
   const [language, setLanguage] = useState<string | null>(null)
@@ -41,7 +50,7 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
       return
     }
 
-    let vapi: Vapi
+    let vapi: VapiInstance
     try {
       vapi = new Vapi(key)
     } catch (e) {
@@ -88,8 +97,12 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
    */
   const start = useCallback(async ({ goals, patientName }: StartOptions) => {
     const assistantId = import.meta.env.VITE_VAPI_ASSISTANT_ID as string | undefined
-    if (!vapiRef.current || !assistantId) {
+    if (!assistantId) {
       setProblem('VITE_VAPI_ASSISTANT_ID is not set.')
+      return
+    }
+    if (!vapiRef.current) {
+      setProblem('The Vapi SDK did not load, so there is nothing to place a call with.')
       return
     }
 
