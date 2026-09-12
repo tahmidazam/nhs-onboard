@@ -12,10 +12,13 @@ import type * as brands from "../brands.js";
 import type * as call from "../call.js";
 import type * as dev from "../dev.js";
 import type * as http from "../http.js";
+import type * as lib_matchRecovery from "../lib/matchRecovery.js";
 import type * as lib_normalisePatient from "../lib/normalisePatient.js";
 import type * as lib_simClient from "../lib/simClient.js";
 import type * as meds from "../meds.js";
 import type * as patients from "../patients.js";
+import type * as recovery from "../recovery.js";
+import type * as rules from "../rules.js";
 import type * as sim from "../sim.js";
 
 import type {
@@ -29,10 +32,13 @@ declare const fullApi: ApiFromModules<{
   call: typeof call;
   dev: typeof dev;
   http: typeof http;
+  "lib/matchRecovery": typeof lib_matchRecovery;
   "lib/normalisePatient": typeof lib_normalisePatient;
   "lib/simClient": typeof lib_simClient;
   meds: typeof meds;
   patients: typeof patients;
+  recovery: typeof recovery;
+  rules: typeof rules;
   sim: typeof sim;
 }>;
 

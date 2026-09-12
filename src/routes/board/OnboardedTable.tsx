@@ -1,17 +1,35 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from 'convex/react'
 import { createColumnHelper } from '@tanstack/react-table'
 import { api } from '../../../convex/_generated/api'
-import type { Doc } from '../../../convex/_generated/dataModel'
+import type { Doc, Id } from '../../../convex/_generated/dataModel'
 import { DataTable, SortableHeader } from '@/components/data-table/DataTable'
 import type { AppTableFeatures } from '@/components/data-table/features'
+import { RecoveryCell } from '@/components/recovery/RecoveryCell'
 import { formatDate, formatStage } from '@/lib/format'
 
 const PAGE_SIZE = 20
 
 const columnHelper = createColumnHelper<AppTableFeatures, Doc<'patients'>>()
 
-const columns = columnHelper.columns([
+type RecoveryMetric = { total: number; recovered: number }
+
+/** Reads recovered/total for one patient, one query per page rather than one per row. */
+function useRecoveryColumn(recoveryByPatientId: Map<Id<'patients'>, RecoveryMetric>) {
+  return useMemo(
+    () =>
+      columnHelper.display({
+        id: 'recovery',
+        header: 'Recovery',
+        cell: ({ row }) => (
+          <RecoveryCell patientName={row.original.name} metric={recoveryByPatientId.get(row.original._id)} />
+        ),
+      }),
+    [recoveryByPatientId],
+  )
+}
+
+const staticColumns = columnHelper.columns([
   columnHelper.accessor('name', {
     header: ({ column }) => (
       <SortableHeader label="Name" sorted={column.getIsSorted()} onToggle={() => column.toggleSorting(column.getIsSorted() === 'asc')} />
@@ -37,6 +55,15 @@ const columns = columnHelper.columns([
 export function OnboardedTable() {
   const patients = useQuery(api.patients.list)
   const [pageIndex, setPageIndex] = useState(0)
+
+  const patientIds = useMemo(() => patients?.map((p) => p._id) ?? [], [patients])
+  const recoveryList = useQuery(api.recovery.forPatients, patients ? { patientIds } : 'skip')
+  const recoveryByPatientId = useMemo(
+    () => new Map(recoveryList?.map((r) => [r.patientId, { total: r.total, recovered: r.recovered }])),
+    [recoveryList],
+  )
+  const recoveryColumn = useRecoveryColumn(recoveryByPatientId)
+  const columns = useMemo(() => [...staticColumns, recoveryColumn], [recoveryColumn])
 
   const pageCount = Math.max(1, Math.ceil((patients?.length ?? 0) / PAGE_SIZE))
   const page = patients?.slice(pageIndex * PAGE_SIZE, pageIndex * PAGE_SIZE + PAGE_SIZE) ?? []
