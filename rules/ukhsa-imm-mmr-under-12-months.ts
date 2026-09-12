@@ -35,20 +35,20 @@ function isMeaslesContaining(fact: ImmunisationFact): boolean {
   return MMR_COMPONENT.test(`${fact.key} ${fact.verbatim} ${fact.resolved ?? ''}`.toLowerCase())
 }
 
+/** The cohort boundary, verbatim from the quoted line below. */
+const MMRV_COHORT_FROM = '2020-01-01'
+
 /**
  * MMRV replaced MMR in the routine schedule from 1 January 2026, but the
  * algorithm branches on the patient's own date of birth, not on that date:
  * "If born before 1 January 2020, catch up MMR components using MMR."
  *
- * The cohort is derived from the frozen clock and the age in months rather than
- * from the profile's birthDate, because months are the unit every dose on a
- * card is measured in here and month precision settles a boundary six years in
- * the past.
+ * So it reads the birthDate the record states rather than an age we derived
+ * from it. Compared as ISO text, because a birthDate is a date with no zone and
+ * parsing it into a Date would give it one. See #30.
  */
 function bornFrom2020(profile: PatientProfile): boolean {
-  const asOf = new Date(profile.asOf)
-  const months = asOf.getUTCFullYear() * 12 + asOf.getUTCMonth() - profile.ageMonths
-  return months >= 2020 * 12
+  return profile.birthDate >= MMRV_COHORT_FROM
 }
 
 export const rule: Rule = {
