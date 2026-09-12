@@ -15,6 +15,8 @@ const sourceRef = v.object({
   quote: v.string(),
 })
 
+const citation = v.object({ url: v.string(), quote: v.string() })
+
 export default defineSchema({
   /** Drives the board. */
   patients: defineTable({
@@ -100,6 +102,12 @@ export default defineSchema({
     ruleId: v.string(),
     status: v.union(v.literal('open'), v.literal('answered')),
     answer: v.optional(v.string()),
+    /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */
+    outputKey: v.optional(v.string()),
+    /** True when the evidence chain touches a synthesised document. See ADR 14. */
+    synthesised: v.optional(v.boolean()),
+    /** 1 is highest. The adjudicator fills a call from priority order. */
+    priority: v.optional(v.number()),
   }).index('by_patient', ['patientId']),
 
   /** `target` is the sim site that owns the resource after write-back. */
@@ -111,12 +119,18 @@ export default defineSchema({
       v.literal('screening'),
       v.literal('immunisation'),
       v.literal('test'),
+      v.literal('task'),
     ),
     title: v.string(),
     rationale: v.string(),
     confidence,
     evidence: v.array(sourceRef),
-    citation: v.optional(v.object({ url: v.string(), quote: v.string() })),
+    citation: v.optional(citation),
+    /**
+     * Behind the primary, never displacing it: the matched country guide row
+     * travels here. See ADR 15.
+     */
+    extraCitations: v.optional(v.array(citation)),
     target: v.union(
       v.literal('pharmacy'),
       v.literal('referrals'),
@@ -125,6 +139,12 @@ export default defineSchema({
     ),
     simResourceId: v.optional(v.string()),
     status: v.union(v.literal('proposed'), v.literal('approved'), v.literal('dismissed')),
+    /** The rule that produced this. See ADR 13. */
+    ruleId: v.optional(v.string()),
+    /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */
+    outputKey: v.optional(v.string()),
+    /** True when the evidence chain touches a synthesised document. See ADR 14. */
+    synthesised: v.optional(v.boolean()),
   }).index('by_patient', ['patientId']),
 
   /** Foreign brand to generic. Seeded by `pnpm data:seed`. */
