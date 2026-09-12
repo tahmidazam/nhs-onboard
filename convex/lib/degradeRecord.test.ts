@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { degradeRecord } from './degradeRecord'
+import { DEFAULT_SEVERITY, scaleLoss } from './degradeConstants'
 import type { PatientRecord } from '../../src/types'
 
 const record: PatientRecord = {
@@ -85,5 +86,38 @@ describe('degradeRecord', () => {
     expect(conditionRate).toBeLessThan(0.7)
     expect(medicationRate).toBeGreaterThan(0.65)
     expect(medicationRate).toBeLessThan(0.85)
+  })
+})
+
+describe('degradeRecord under a scaled loss table', () => {
+  const factCount = (severity: number, seed = 'seed-1') =>
+    degradeRecord(record, 'BD', seed, scaleLoss(severity)).documents.flatMap((d) => d.facts).length
+
+  it('keeps every fact when the dial is set to lose nothing', () => {
+    const { documents } = degradeRecord(record, 'BD', 'seed-1', scaleLoss(0))
+    const names = documents.flatMap((d) => d.facts)
+
+    for (const condition of record.conditions) expect(names).toContain(condition)
+    expect(names).toContain('Latex')
+  })
+
+  it('carries fewer facts at full severity than at none', () => {
+    expect(factCount(1)).toBeLessThan(factCount(0))
+  })
+
+  it('stays deterministic for a given seed and severity', () => {
+    expect(degradeRecord(record, 'BD', 'seed-1', scaleLoss(0.8))).toEqual(
+      degradeRecord(record, 'BD', 'seed-1', scaleLoss(0.8)),
+    )
+  })
+
+  it('degrades no harder than the default when asked for less', () => {
+    expect(factCount(0.25)).toBeGreaterThanOrEqual(factCount(0.5))
+  })
+
+  it('matches the untuned call at the default severity', () => {
+    expect(degradeRecord(record, 'BD', 'seed-1', scaleLoss(DEFAULT_SEVERITY))).toEqual(
+      degradeRecord(record, 'BD', 'seed-1'),
+    )
   })
 })

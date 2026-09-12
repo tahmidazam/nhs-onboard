@@ -5,6 +5,7 @@ import type { Doc } from './_generated/dataModel'
 import { degradeRecord } from './lib/degradeRecord'
 import { applyBrandNames } from './lib/degradeBrand'
 import { translateLines } from './lib/degradeTranslate'
+import { DEFAULT_SEVERITY, scaleLoss } from './lib/degradeConstants'
 import { synthesiseVaccinationCard } from './lib/degradeVaccination'
 import { sourceForCountry } from '../src/lib/sources'
 import type { PatientRecord } from '../src/types'
@@ -70,6 +71,7 @@ export const getPatient = internalQuery({
         allergies: v.array(v.string()),
         immunisations: v.array(v.string()),
       }),
+      degradation: v.optional(v.object({ severity: v.number(), translate: v.boolean() })),
     }),
   ),
   handler: async (ctx, { patientId }) => {
@@ -81,6 +83,7 @@ export const getPatient = internalQuery({
       birthDate: patient.birthDate,
       country: patient.country,
       truth: patient.truth,
+      degradation: patient.degradation,
     }
   },
 })
@@ -118,9 +121,15 @@ export const replaceDocuments = internalMutation({
  * which is the only way to re-degrade: see docs/adr/0010-degrader-is-template-driven.md.
  */
 export const degrade = action({
-  args: { patientId: v.id('patients'), force: v.optional(v.boolean()) },
+  args: {
+    patientId: v.id('patients'),
+    force: v.optional(v.boolean()),
+    /** Overrides what onboarding stored, for a regeneration at a different setting. */
+    severity: v.optional(v.number()),
+    translate: v.optional(v.boolean()),
+  },
   returns: v.array(documentDoc),
-  handler: async (ctx, { patientId, force }): Promise<Doc<'documents'>[]> => {
+  handler: async (ctx, { patientId, force, severity, translate }): Promise<Doc<'documents'>[]> => {
     if (!force) {
       const existing = await ctx.runQuery(internal.degrade.existingDocuments, { patientId })
       if (existing.length > 0) return existing
@@ -140,8 +149,11 @@ export const degrade = action({
       raw: null,
     }
 
+    const effectiveSeverity = severity ?? patient.degradation?.severity ?? DEFAULT_SEVERITY
+    const effectiveTranslate = translate ?? patient.degradation?.translate ?? true
+
     /** Seeded from the sim id, so the same patient degrades identically every run. */
-    const { documents } = degradeRecord(record, patient.country, patient.simId)
+    const { documents } = degradeRecord(record, patient.country, patient.simId, scaleLoss(effectiveSeverity))
 
     /**
      * The sim carries no immunisation data (ADR 8), so every onboarded patient
@@ -158,8 +170,12 @@ export const degrade = action({
 
     const allDocuments = [...documents.map((d) => ({ ...d, synthesised: false as const })), vaccinationCard]
 
-    /** The country's primary language. Falls back to English when the source carries none. */
-    const language = sourceForCountry(patient.country)?.languages[0] ?? 'en'
+    /**
+     * The country's primary language. Falls back to English when the source
+     * carries none, and when the operator turned translation off: the text
+     * really is English then, and `language` is what the reader is told.
+     */
+    const language = effectiveTranslate ? (sourceForCountry(patient.country)?.languages[0] ?? 'en') : 'en'
 
     const drafts = await Promise.all(
       allDocuments.map(async ({ kind, country, text, synthesised, ...rest }) => {

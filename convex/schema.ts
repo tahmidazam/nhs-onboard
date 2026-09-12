@@ -47,6 +47,19 @@ export default defineSchema({
     }),
     recovery: v.optional(v.object({ total: v.number(), recovered: v.number() })),
     /**
+     * How the operator asked for this patient's documents to be generated.
+     * Set at onboarding and reused by every regeneration, so a re-degrade
+     * reproduces what the board already shows. Absent on rows onboarded
+     * before the dial existed, which fall back to the shipped defaults.
+     */
+    degradation: v.optional(
+      v.object({
+        /** 0 loses nothing, 1 is the heaviest loss. See convex/lib/degradeConstants.ts. */
+        severity: v.number(),
+        translate: v.boolean(),
+      }),
+    ),
+    /**
      * One entry per extraction call that failed twice. Recorded rather than
      * swallowed: a document that yielded nothing because a call failed is
      * otherwise indistinguishable from a document that held nothing, and that

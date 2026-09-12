@@ -84,20 +84,21 @@ export const upsert = internalMutation({
     birthDate: v.string(),
     country: v.string(),
     truth,
+    degradation: v.optional(v.object({ severity: v.number(), translate: v.boolean() })),
   },
   returns: v.id('patients'),
-  handler: async (ctx, { simId, name, birthDate, country, truth }) => {
+  handler: async (ctx, { simId, name, birthDate, country, truth, degradation }) => {
     const existing = await ctx.db
       .query('patients')
       .withIndex('by_simId', (q) => q.eq('simId', simId))
       .unique()
 
     if (existing) {
-      await ctx.db.patch('patients', existing._id, { name, birthDate, country })
+      await ctx.db.patch('patients', existing._id, { name, birthDate, country, ...(degradation ? { degradation } : {}) })
       return existing._id
     }
 
-    return await ctx.db.insert('patients', { simId, name, birthDate, country, truth, stage: 'degrading' })
+    return await ctx.db.insert('patients', { simId, name, birthDate, country, truth, degradation, stage: 'degrading' })
   },
 })
 
@@ -110,9 +111,15 @@ export const upsert = internalMutation({
  * identity fields refresh.
  */
 export const onboard = action({
-  args: { patientId: v.string(), name: v.string(), birthDate: v.string(), country: v.string() },
+  args: {
+    patientId: v.string(),
+    name: v.string(),
+    birthDate: v.string(),
+    country: v.string(),
+    degradation: v.optional(v.object({ severity: v.number(), translate: v.boolean() })),
+  },
   returns: v.id('patients'),
-  handler: async (ctx, { patientId, name, birthDate, country }): Promise<Id<'patients'>> => {
+  handler: async (ctx, { patientId, name, birthDate, country, degradation }): Promise<Id<'patients'>> => {
     if (!sourceForCountry(country)) {
       throw new Error(`Country ${country} has no matching brand dataset`)
     }
@@ -129,6 +136,7 @@ export const onboard = action({
         birthDate,
         country: upperCountry,
         truth: existing.truth,
+        degradation,
       })
     }
 
@@ -149,6 +157,7 @@ export const onboard = action({
         allergies: record.allergies,
         immunisations: record.immunisations,
       },
+      degradation,
     })
   },
 })

@@ -8,7 +8,7 @@
  * reference number) comes from the fixed lists below.
  */
 import type { PatientRecord } from '../../src/types'
-import { LOSS_RATES } from './degradeConstants'
+import { LOSS_RATES, type LossTable } from './degradeConstants'
 
 export type DegradedDocumentKind = 'clinic-letter' | 'prescription-list'
 
@@ -107,25 +107,25 @@ interface CategoryResult {
  * still marks it active: a migrating record does not reliably carry
  * resolution either. See CONTEXT.md's known gaps section.
  */
-function degradeConditions(conditions: string[], rng: () => number): CategoryResult {
+function degradeConditions(conditions: string[], rng: () => number, loss: LossTable): CategoryResult {
   const lines: string[] = []
   const facts: string[] = []
   for (const term of conditions) {
-    if (rng() > LOSS_RATES.condition.survives) continue
-    const coded = rng() < LOSS_RATES.condition.attributes.codedDiagnosis
+    if (rng() > loss.condition.survives) continue
+    const coded = rng() < loss.condition.attributes.codedDiagnosis
     lines.push(renderCondition(term, coded))
     facts.push(term)
   }
   return { lines, facts }
 }
 
-function degradeAllergies(allergies: string[], rng: () => number): CategoryResult {
+function degradeAllergies(allergies: string[], rng: () => number, loss: LossTable): CategoryResult {
   const lines: string[] = []
   const facts: string[] = []
   for (const raw of allergies) {
-    if (rng() > LOSS_RATES.allergy.survives) continue
+    if (rng() > loss.allergy.survives) continue
     const { substance, reaction } = splitAllergy(raw)
-    const keepReaction = reaction !== undefined && rng() < LOSS_RATES.allergy.attributes.reaction
+    const keepReaction = reaction !== undefined && rng() < loss.allergy.attributes.reaction
     lines.push(keepReaction ? `Allergic to ${substance}, reaction: ${reaction}.` : `Allergic to ${substance}.`)
     facts.push(substance)
     if (keepReaction) facts.push(reaction)
@@ -138,15 +138,15 @@ interface MedicationResult extends CategoryResult {
   names: string[]
 }
 
-function degradeMedications(medications: string[], rng: () => number): MedicationResult {
+function degradeMedications(medications: string[], rng: () => number, loss: LossTable): MedicationResult {
   const lines: string[] = []
   const facts: string[] = []
   const names: string[] = []
   for (const raw of medications) {
-    if (rng() > LOSS_RATES.medication.survives) continue
+    if (rng() > loss.medication.survives) continue
     const { name, dose, frequency } = splitMedication(raw)
-    const keepDose = dose !== undefined && rng() < LOSS_RATES.medication.attributes.dose
-    const keepFrequency = frequency !== undefined && rng() < LOSS_RATES.medication.attributes.frequency
+    const keepDose = dose !== undefined && rng() < loss.medication.attributes.dose
+    const keepFrequency = frequency !== undefined && rng() < loss.medication.attributes.frequency
 
     const parts = [name]
     if (keepDose) parts.push(dose)
@@ -191,14 +191,24 @@ function renderPrescriptionList(record: PatientRecord, rng: () => number, medica
  * Degrades one patient's frozen snapshot into English PresentedDocuments.
  * Seeded, so the same `seed` (the patient's sim id) always produces the same
  * output. A category with nothing in the snapshot produces no document.
+ *
+ * `loss` defaults to the shipped table. The operator's severity dial passes a
+ * scaled copy, which changes how much survives without changing the draws:
+ * the same seed at two severities still reads as the same record, degraded
+ * further.
  */
-export function degradeRecord(record: PatientRecord, country: string, seed: string): DegradeResult {
+export function degradeRecord(
+  record: PatientRecord,
+  country: string,
+  seed: string,
+  loss: LossTable = LOSS_RATES,
+): DegradeResult {
   const rng = seededRandom(seed)
   const documents: DegradedDocument[] = []
 
   if (record.conditions.length > 0 || record.allergies.length > 0) {
-    const conditions = degradeConditions(record.conditions, rng)
-    const allergies = degradeAllergies(record.allergies, rng)
+    const conditions = degradeConditions(record.conditions, rng, loss)
+    const allergies = degradeAllergies(record.allergies, rng, loss)
     documents.push({
       kind: 'clinic-letter',
       language: 'en',
@@ -209,7 +219,7 @@ export function degradeRecord(record: PatientRecord, country: string, seed: stri
   }
 
   if (record.medications.length > 0) {
-    const medications = degradeMedications(record.medications, rng)
+    const medications = degradeMedications(record.medications, rng, loss)
     documents.push({
       kind: 'prescription-list',
       language: 'en',

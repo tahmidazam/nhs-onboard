@@ -10,6 +10,38 @@ export interface CategoryLoss {
   attributes: Record<string, number>
 }
 
+export type LossTable = Record<'allergy' | 'medication' | 'condition' | 'immunisation', CategoryLoss>
+
+/** The operator's dial, 0 for a pristine record and 1 for the worst the degrader produces. */
+export const DEFAULT_SEVERITY = 0.5
+
+/**
+ * Scales every rate in the table by raising it to `2 * severity`.
+ *
+ * The exponent, rather than a multiplier, is what keeps the result a
+ * probability at both ends: 0 returns 1 everywhere, so nothing is lost, and 1
+ * squares each baseline into roughly twice the loss. `DEFAULT_SEVERITY`
+ * returns the table below unchanged, so the shipped numbers stay the midpoint
+ * a judge sees rather than an end stop.
+ */
+export function scaleLoss(severity: number, base: LossTable = LOSS_RATES): LossTable {
+  const clamped = Math.min(1, Math.max(0, severity))
+  const exponent = 2 * clamped
+  const scale = (rate: number) => rate ** exponent
+
+  return Object.fromEntries(
+    Object.entries(base).map(([category, loss]) => [
+      category,
+      {
+        survives: scale(loss.survives),
+        attributes: Object.fromEntries(
+          Object.entries(loss.attributes).map(([name, rate]) => [name, scale(rate)]),
+        ),
+      },
+    ]),
+  ) as LossTable
+}
+
 export const LOSS_RATES = {
   /** Patients remember what they are allergic to more often than the detail of the reaction. */
   allergy: {
