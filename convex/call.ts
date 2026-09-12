@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { action, internalMutation, internalQuery, mutation } from './_generated/server'
+import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
 import { internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 
@@ -24,6 +24,19 @@ export const openGaps = internalQuery({
     return gaps
       .filter((g) => g.status === 'open')
       .map((g) => ({ _id: g._id, question: g.question }))
+  },
+})
+
+/** The open gap questions for a patient, for the browser call path. */
+export const openQuestions = query({
+  args: { patientId: v.id('patients') },
+  returns: v.array(v.string()),
+  handler: async (ctx, { patientId }) => {
+    const gaps = await ctx.db
+      .query('gaps')
+      .withIndex('by_patient', (q) => q.eq('patientId', patientId))
+      .collect()
+    return gaps.filter((g) => g.status === 'open').map((g) => g.question)
   },
 })
 

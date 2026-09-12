@@ -10,6 +10,7 @@
 
 import type * as brands from "../brands.js";
 import type * as call from "../call.js";
+import type * as dev from "../dev.js";
 import type * as http from "../http.js";
 import type * as meds from "../meds.js";
 
@@ -22,6 +23,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   brands: typeof brands;
   call: typeof call;
+  dev: typeof dev;
   http: typeof http;
   meds: typeof meds;
 }>;
