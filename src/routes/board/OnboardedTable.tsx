@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from 'convex/react'
 import { createColumnHelper } from '@tanstack/react-table'
+import { Link } from '@tanstack/react-router'
+import { Button } from '@/components/ui/button'
 import { api } from '../../../convex/_generated/api'
 import type { Doc, Id } from '../../../convex/_generated/dataModel'
 import { DataTable, SortableHeader } from '@/components/data-table/DataTable'
@@ -56,7 +58,15 @@ const staticColumns = columnHelper.columns([
     header: ({ column }) => (
       <SortableHeader label="Name" sorted={column.getIsSorted()} onToggle={() => column.toggleSorting(column.getIsSorted() === 'asc')} />
     ),
-    cell: ({ getValue }) => <span className="font-medium">{getValue()}</span>,
+    cell: ({ row, getValue }) => (
+      <Link
+        to="/patient/$id"
+        params={{ id: row.original._id }}
+        className="font-medium underline-offset-4 hover:underline"
+      >
+        {getValue()}
+      </Link>
+    ),
   }),
   columnHelper.accessor('birthDate', {
     header: 'Birth date',
@@ -75,6 +85,28 @@ const staticColumns = columnHelper.columns([
     id: 'call',
     header: 'Call',
     cell: ({ row }) => <CallCell patientId={row.original._id} patientName={row.original.name} />,
+  }),
+  columnHelper.display({
+    id: 'open',
+    header: '',
+    cell: ({ row }) => (
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          render={<Link to="/patient/$id" params={{ id: row.original._id }} />}
+        >
+          Documents
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          render={<Link to="/patient/$id/review" params={{ id: row.original._id }} />}
+        >
+          Review
+        </Button>
+      </div>
+    ),
   }),
 ])
 
