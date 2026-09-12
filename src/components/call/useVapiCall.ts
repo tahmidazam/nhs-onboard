@@ -116,10 +116,18 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
 
     try {
       const call = await vapiRef.current.start(assistantId, {
-        /** The dashboard prompt reads {{goals}} and {{patientName}}. */
+        /**
+         * Names here must match the placeholders in the dashboard prompt, and
+         * the set must match what convex/call.ts sends, or the phone and the
+         * browser paths ask the patient different questions.
+         */
         variableValues: {
-          goals: goals.map((g, i) => `${i + 1}. ${g}`).join('\n') || 'No open questions.',
           patientName,
+          patientAge: String(patientAge),
+          patientDob,
+          goals:
+            goals.map((g, i) => `${i + 1}. ${g}`).join('\n') ||
+            'Nothing specific is outstanding. Work the call plan.',
         },
       })
       if (call?.id) await onStarted?.(call.id)
