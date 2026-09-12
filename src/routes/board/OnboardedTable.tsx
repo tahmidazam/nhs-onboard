@@ -5,6 +5,8 @@ import { api } from '../../../convex/_generated/api'
 import type { Doc, Id } from '../../../convex/_generated/dataModel'
 import { DataTable, SortableHeader } from '@/components/data-table/DataTable'
 import type { AppTableFeatures } from '@/components/data-table/features'
+import { ExtractionCell } from '@/components/extraction/ExtractionCell'
+import type { ExtractionProgress } from '@/components/extraction/types'
 import { RecoveryCell } from '@/components/recovery/RecoveryCell'
 import { formatDate, formatStage } from '@/lib/format'
 
@@ -26,6 +28,25 @@ function useRecoveryColumn(recoveryByPatientId: Map<Id<'patients'>, RecoveryMetr
         ),
       }),
     [recoveryByPatientId],
+  )
+}
+
+/**
+ * Reads the live claim count and any extraction failure for one patient, one
+ * query per page rather than one per row. The count comes from the `claims`
+ * table, never from a field on `patients`. See ADR 16.
+ */
+function useClaimsColumn(extractionByPatientId: Map<Id<'patients'>, ExtractionProgress>) {
+  return useMemo(
+    () =>
+      columnHelper.display({
+        id: 'claims',
+        header: 'Claims',
+        cell: ({ row }) => (
+          <ExtractionCell patientName={row.original.name} progress={extractionByPatientId.get(row.original._id)} />
+        ),
+      }),
+    [extractionByPatientId],
   )
 }
 
@@ -63,7 +84,21 @@ export function OnboardedTable() {
     [recoveryList],
   )
   const recoveryColumn = useRecoveryColumn(recoveryByPatientId)
-  const columns = useMemo(() => [...staticColumns, recoveryColumn], [recoveryColumn])
+
+  const extractionList = useQuery(api.board.extractionForPatients, patients ? { patientIds } : 'skip')
+  const extractionByPatientId = useMemo(
+    () =>
+      new Map(
+        extractionList?.map((e) => [e.patientId, { claimCount: e.claimCount, failures: e.failures }]),
+      ),
+    [extractionList],
+  )
+  const claimsColumn = useClaimsColumn(extractionByPatientId)
+
+  const columns = useMemo(
+    () => [...staticColumns, claimsColumn, recoveryColumn],
+    [claimsColumn, recoveryColumn],
+  )
 
   const pageCount = Math.max(1, Math.ceil((patients?.length ?? 0) / PAGE_SIZE))
   const page = patients?.slice(pageIndex * PAGE_SIZE, pageIndex * PAGE_SIZE + PAGE_SIZE) ?? []

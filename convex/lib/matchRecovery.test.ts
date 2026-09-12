@@ -3,14 +3,18 @@ import { matchRecovery } from './matchRecovery'
 import type { Truth } from './matchRecovery'
 import type { Claim } from '../../src/types'
 
-/** Fills in the SourceRef and confidence fields a test does not care about. */
+/**
+ * Fills in the SourceRef and confidence fields a test does not care about. The
+ * default source is an anchored document quote, so a test that says nothing
+ * about anchoring gets a claim that counts. See ADR 17.
+ */
 function claim(overrides: Partial<Claim> & Pick<Claim, 'kind' | 'verbatim'>): Claim {
   return {
     id: 'claim-1',
     patientId: 'patient-1',
     resolved: undefined,
     confidence: 'document-evidenced',
-    source: { kind: 'document', id: 'doc-1', quote: overrides.verbatim },
+    source: { kind: 'document', id: 'doc-1', quote: overrides.verbatim, verified: true },
     ...overrides,
   }
 }
@@ -79,5 +83,90 @@ describe('matchRecovery', () => {
     ]
 
     expect(matchRecovery(truth, claims)).toEqual({ total: 1, recovered: 1 })
+  })
+})
+
+describe('matchRecovery anchoring predicate', () => {
+  const asthmaTruth: Truth = { ...emptyTruth, conditions: ['Asthma'] }
+
+  /** A condition claim that would match `asthmaTruth`, carrying the given source. */
+  function asthmaClaim(source: Claim['source']): Claim {
+    return claim({ kind: 'condition', verbatim: 'asthma', resolved: 'asthma', source })
+  }
+
+  it('counts a document claim whose quote anchored', () => {
+    const claims = [asthmaClaim({ kind: 'document', id: 'doc-1', quote: 'asthma', verified: true })]
+
+    expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 1 })
+  })
+
+  it('does not count a document claim whose quote failed to anchor, and leaves the denominator alone', () => {
+    const claims = [asthmaClaim({ kind: 'document', id: 'doc-1', quote: 'asthma', verified: false })]
+
+    expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 0 })
+  })
+
+  it('does not count a document claim with no verified field, which was never anchored', () => {
+    const claims = [asthmaClaim({ kind: 'document', id: 'doc-1', quote: 'asthma' })]
+
+    expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 0 })
+  })
+
+  it('counts a transcript claim, which has no quote to verify', () => {
+    const claims = [asthmaClaim({ kind: 'transcript', id: 'call-1', quote: 'I have asthma' })]
+
+    expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 1 })
+  })
+
+  it('counts a sim-record claim, which has no quote to verify', () => {
+    const claims = [asthmaClaim({ kind: 'sim-record', id: 'cond-1', quote: 'Asthma' })]
+
+    expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 1 })
+  })
+
+  it('applies the predicate to medications, which match on the mapped ingredient rather than text', () => {
+    const truth: Truth = { ...emptyTruth, medications: ['Paracetamol'] }
+    const mapping = {
+      brand: 'Napa',
+      generic: 'Paracetamol',
+      ukIngredient: 'Paracetamol',
+      via: 'bd-medex' as const,
+      unresolved: false,
+    }
+
+    const anchored: Claim[] = [
+      claim({
+        kind: 'medication',
+        verbatim: 'Napa',
+        mapping,
+        source: { kind: 'document', id: 'doc-1', quote: 'Napa 500mg', verified: true },
+      }),
+    ]
+    const unanchored: Claim[] = [
+      claim({
+        kind: 'medication',
+        verbatim: 'Napa',
+        mapping,
+        source: { kind: 'document', id: 'doc-1', quote: 'Napa 500mg', verified: false },
+      }),
+    ]
+
+    expect(matchRecovery(truth, anchored)).toEqual({ total: 1, recovered: 1 })
+    expect(matchRecovery(truth, unanchored)).toEqual({ total: 1, recovered: 0 })
+  })
+
+  it('still counts a fact an anchored claim reaches when an unanchored claim covers the same ground', () => {
+    const claims: Claim[] = [
+      asthmaClaim({ kind: 'document', id: 'doc-1', quote: 'asthma', verified: false }),
+      claim({
+        id: 'c2',
+        kind: 'condition',
+        verbatim: 'asthma',
+        resolved: 'asthma',
+        source: { kind: 'transcript', id: 'call-1', quote: 'asthma' },
+      }),
+    ]
+
+    expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 1 })
   })
 })

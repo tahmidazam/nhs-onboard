@@ -13,6 +13,8 @@ const sourceRef = v.object({
   kind: v.union(v.literal('document'), v.literal('transcript'), v.literal('sim-record')),
   id: v.string(),
   quote: v.string(),
+  /** Quote anchored against the document by containment; absent where anchoring does not apply. See ADR 17. */
+  verified: v.optional(v.boolean()),
 })
 
 const citation = v.object({ url: v.string(), quote: v.string() })
@@ -44,6 +46,22 @@ export default defineSchema({
       immunisations: v.array(v.string()),
     }),
     recovery: v.optional(v.object({ total: v.number(), recovered: v.number() })),
+    /**
+     * One entry per extraction call that failed twice. Recorded rather than
+     * swallowed: a document that yielded nothing because a call failed is
+     * otherwise indistinguishable from a document that held nothing, and that
+     * difference lands in the recovery denominator's story. Written by
+     * convex/extract.ts, cleared at the start of every run.
+     */
+    extractionFailures: v.optional(
+      v.array(
+        v.object({
+          documentId: v.id('documents'),
+          agent: v.string(),
+          message: v.string(),
+        }),
+      ),
+    ),
   }).index('by_simId', ['simId']),
 
   /** Output of the degrader. */
