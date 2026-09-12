@@ -52,6 +52,7 @@ Rationale lives in `docs/adr/`. Read the ADR before changing behaviour it covers
 | [5](docs/adr/0005-hand-encoded-rule-pack.md) | Guidelines are a hand-encoded rule pack with citations. |
 | [6](docs/adr/0006-openai-agents-sdk.md) | `@openai/agents`, not the Anima ADK. |
 | [7](docs/adr/0007-vapi-owns-voice.md) | Vapi owns the voice transport. |
+| [8](docs/adr/0008-synthesised-immunisations-for-demo.md) | Immunisations and family history are synthesised for the demo and labelled. |
 
 ## Data sources
 

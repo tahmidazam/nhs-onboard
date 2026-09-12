@@ -54,6 +54,8 @@ export default defineSchema({
     language: v.string(),
     country: v.string(),
     text: v.string(),
+    /** Generated rather than derived from the sim record. See ADR 8. */
+    synthesised: v.optional(v.boolean()),
   }).index('by_patient', ['patientId']),
 
   /** One extracted fact with its source. */

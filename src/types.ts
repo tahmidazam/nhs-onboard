@@ -43,6 +43,8 @@ export interface PresentedDocument {
   /** ISO 3166-1 alpha-2. Selects the brand dataset in sources.ts. */
   country: string
   text: string
+  /** Generated rather than derived from the sim record. Labelled in the UI. */
+  synthesised?: boolean
 }
 
 export type ClaimKind = 'medication' | 'condition' | 'immunisation' | 'family-history' | 'allergy'

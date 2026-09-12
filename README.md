@@ -46,29 +46,57 @@ has no ingested patients to test against.
 
 ## How the work splits
 
-The contract is `src/types.ts` and `convex/schema.ts`. Dev A produces
-`PresentedDocument[]`. Dev B consumes them and produces `Recommendation[]`.
-Neither file changes without telling the other developer.
+The contract is `src/types.ts` and `convex/schema.ts`. Neither changes without
+telling the other developer.
 
-| Dev A, data in | Dev B, judgement out |
+**Dev B takes the whole voice vertical first**, end to end, before anything else.
+It is the highest-risk piece, it needs live testing time, and the brief has a
+prize for the best voice-based solution. Reassess the split once it works.
+
+| Dev B, phase 1: voice | Dev A: the pipeline |
 |---|---|
-| `convex/sim.ts`, adapter to PatientRecord | `convex/extract.ts`, 4 parallel agents to Claim[] |
-| `convex/degrade.ts`, drop, translate, unstructure | `convex/meds.ts`, deterministic brand lookup |
-| `convex/schema.ts`, owner | `convex/rules.ts` and `rules/*.yaml` |
-| `src/routes/board/`, status table | `convex/call.ts` and `convex/http.ts`, Vapi |
-| `src/components/ui/`, shadcn installs | `src/routes/review/`, three confidence columns |
+| Vapi assistant in the dashboard, Bengali plus English | `convex/sim.ts`, adapter to PatientRecord |
+| `convex/http.ts`, the `end-of-call-report` webhook | `convex/degrade.ts`, drop, translate, unstructure |
+| `convex/call.ts`, place a call, store the transcript | `convex/extract.ts`, 4 parallel agents to Claim[] |
+| `src/components/call/`, web SDK and live transcript | `convex/meds.ts`, deterministic lookup |
+| Transcript to Claim[] tagged `patient-reported` | `convex/rules.ts` and `rules/*.yaml` |
+| | `src/routes/board/` and `src/routes/review/` |
 
-Both push to `main`. File ownership replaces PR review at this timescale. Run
-`git pull --rebase` before every push, and commit every 10 to 15 minutes using
+Dev B's first milestone is a call that connects, runs in Bengali, hangs up, and
+lands a transcript in the `calls` table. Nothing else matters until that works.
+Read `.claude/skills/vapi-call/SKILL.md` before starting.
+
+Once it does, tell Dev A and we rebalance. The likely handover is the review
+screen or the rule pack, whichever is further behind.
+
+## Branches and pull requests
+
+One branch per slice of work, named for what it does.
+
+```
+feat/vapi-webhook
+feat/sim-adapter
+feat/rule-pack
+```
+
+**Push to your branch every 10 to 15 minutes**, whether or not the slice is
+finished. Work that only exists on one laptop is work the team can lose. Use
 [Conventional Commits](https://www.conventionalcommits.org/).
 
 ```
-feat(sim): normalise GP records to PatientRecord
+feat(call): place an outbound call and store the transcript
 fix(call): raise customerJoinTimeoutSeconds for conference wifi
 chore(rules): add cervical screening rule with HPV-dependent interval
 ```
 
-Checkpoints. At T+1h both push and run each other's code once. At T+2h features
+Open the PR when the slice runs. Both of you are heads-down, so merging does not
+wait on a review: squash-merge your own PR once it works, and let the other
+developer read it after. `gh pr create --fill` then `gh pr merge --squash`.
+
+Rebase on `main` before merging so the history stays readable, and pull
+straight after someone else merges.
+
+Checkpoints. At T+1h both merge and run each other's code once. At T+2h features
 freeze and only wiring continues. At T+2h30 run the demo end to end, twice.
 
 ## Architecture
