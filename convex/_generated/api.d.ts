@@ -12,7 +12,11 @@ import type * as brands from "../brands.js";
 import type * as call from "../call.js";
 import type * as dev from "../dev.js";
 import type * as http from "../http.js";
+import type * as lib_normalisePatient from "../lib/normalisePatient.js";
+import type * as lib_simClient from "../lib/simClient.js";
 import type * as meds from "../meds.js";
+import type * as patients from "../patients.js";
+import type * as sim from "../sim.js";
 
 import type {
   ApiFromModules,
@@ -25,7 +29,11 @@ declare const fullApi: ApiFromModules<{
   call: typeof call;
   dev: typeof dev;
   http: typeof http;
+  "lib/normalisePatient": typeof lib_normalisePatient;
+  "lib/simClient": typeof lib_simClient;
   meds: typeof meds;
+  patients: typeof patients;
+  sim: typeof sim;
 }>;
 
 /**

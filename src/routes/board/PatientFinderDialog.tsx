@@ -182,9 +182,6 @@ export function PatientFinderDialog({ open, onOpenChange }: PatientFinderDialogP
     }
   }
 
-  const canGoBack = offset > 0
-  const canGoForward = offset + PAGE_SIZE < total
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[90vh] flex-col sm:max-w-3xl">
@@ -214,7 +211,7 @@ export function PatientFinderDialog({ open, onOpenChange }: PatientFinderDialogP
             </Alert>
           )}
 
-          <div className="max-h-72 overflow-y-auto rounded-md border border-border">
+          <div className="rounded-md border border-border">
             <DataTable
               columns={columns}
               data={items}
@@ -222,29 +219,12 @@ export function PatientFinderDialog({ open, onOpenChange }: PatientFinderDialogP
               emptyMessage="No simulator patients match that search."
               onRowClick={setSelected}
               isRowSelected={(row) => row.id === selected?.id}
+              pagination={{
+                pageIndex: offset / PAGE_SIZE,
+                pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+                onPageChange: (pageIndex) => setOffset(pageIndex * PAGE_SIZE),
+              }}
             />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setOffset((o) => Math.max(0, o - PAGE_SIZE))}
-              disabled={!canGoBack || loadingList}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setOffset((o) => o + PAGE_SIZE)}
-              disabled={!canGoForward || loadingList}
-            >
-              Next
-            </Button>
-            <span className="text-sm text-muted-foreground tabular-nums">
-              {total > 0 ? `${offset + 1}–${Math.min(offset + PAGE_SIZE, total)} of ${total.toLocaleString()}` : ''}
-            </span>
           </div>
 
           {selected && (
