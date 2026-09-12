@@ -18,7 +18,10 @@ interface PhoneCallFormProps {
 
 export function PhoneCallForm({ patientId, questionCount }: PhoneCallFormProps) {
   const place = useAction(api.call.place)
-  const [number, setNumber] = useState('')
+  /** Prefilled from the environment so a demo does not start with typing. */
+  const [number, setNumber] = useState(
+    (import.meta.env.VITE_DEMO_PHONE_NUMBER as string | undefined) ?? '',
+  )
   const [status, setStatus] = useState<'idle' | 'placing' | 'ringing'>('idle')
   const [problem, setProblem] = useState<string | null>(null)
 
