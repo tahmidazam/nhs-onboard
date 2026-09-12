@@ -44,6 +44,13 @@ export const list = query({
   handler: async (ctx) => await ctx.db.query('patients').order('desc').take(200),
 })
 
+/** One patient by Convex id, for the patient page. */
+export const get = query({
+  args: { patientId: v.id('patients') },
+  returns: v.union(v.null(), patientDoc),
+  handler: async (ctx, { patientId }) => await ctx.db.get(patientId),
+})
+
 export const getBySimId = internalQuery({
   args: { simId: v.string() },
   returns: v.union(v.null(), patientDoc),
