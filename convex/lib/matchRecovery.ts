@@ -8,7 +8,17 @@ import type { Claim, PatientRecord, RecoveryMetric } from '../../src/types'
 export type Truth = Pick<PatientRecord, 'conditions' | 'medications' | 'allergies' | 'immunisations'>
 
 /** The claim fields scoring reads. A stored `claims` document satisfies this without reshaping. */
-export type MatchableClaim = Pick<Claim, 'kind' | 'verbatim' | 'resolved' | 'mapping'>
+export type MatchableClaim = Pick<Claim, 'kind' | 'verbatim' | 'resolved' | 'mapping' | 'source'>
+
+/**
+ * True when a claim may count towards the numerator. A `document` claim counts
+ * only once its quote has anchored by containment; `transcript` and `sim-record`
+ * claims have no quote to verify and carry no `verified` field at all, so they
+ * are admitted unconditionally. See ADR 17.
+ */
+export function isAnchored(claim: MatchableClaim): boolean {
+  return claim.source.kind !== 'document' || claim.source.verified === true
+}
 
 /** Lowercases and strips non-alphanumerics. Shares its rule with `normaliseBrand`. */
 function normalise(raw: string): string {
@@ -39,11 +49,17 @@ function matchesByIngredient(fact: string, claims: MatchableClaim[]): boolean {
 /**
  * Scores a truth snapshot against extracted claims. Immunisations are always
  * synthesised (ADR 8) and are excluded from both `total` and `recovered`.
+ * Unanchored claims are excluded from `recovered` only; `total` comes from
+ * `truth` and is unaffected. See ADR 17.
  */
 export function matchRecovery(truth: Truth, claims: MatchableClaim[]): RecoveryMetric {
-  const medicationClaims = claims.filter((claim) => claim.kind === 'medication')
-  const conditionClaims = claims.filter((claim) => claim.kind === 'condition')
-  const allergyClaims = claims.filter((claim) => claim.kind === 'allergy')
+  // Filtered once, before the per-kind splits: an unanchored claim is one the
+  // extractor may have manufactured, and must not score as a recovered fact.
+  const anchored = claims.filter(isAnchored)
+
+  const medicationClaims = anchored.filter((claim) => claim.kind === 'medication')
+  const conditionClaims = anchored.filter((claim) => claim.kind === 'condition')
+  const allergyClaims = anchored.filter((claim) => claim.kind === 'allergy')
 
   const recoveredMedications = truth.medications.filter((fact) => matchesByIngredient(fact, medicationClaims))
   const recoveredConditions = truth.conditions.filter((fact) => matchesByText(fact, conditionClaims))
