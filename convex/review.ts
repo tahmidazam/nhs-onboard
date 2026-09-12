@@ -1,7 +1,8 @@
 import { v } from 'convex/values'
+import { internal } from './_generated/api'
 import { mutation, query } from './_generated/server'
 
-/** Queries and mutations for the review screen. Nothing here posts to the sim. */
+/** Queries and mutations for the review screen. Approval schedules the write-back action. */
 
 const confidence = v.union(
   v.literal('document-evidenced'),
@@ -69,11 +70,9 @@ export const forPatient = query({
  * The confirm dialog's action: moves the selected recommendations from
  * `proposed` to `approved`. A recommendation not currently `proposed` is left
  * alone, so a stale selection from a second browser tab cannot revive a row
- * someone already dismissed.
- *
- * WRITE-BACK CALL SITE. Once convex/writeback.ts exists, schedule its action
- * here for each id that this loop actually patches, for example:
- *   await ctx.scheduler.runAfter(0, internal.writeback.post, { recommendationId: id })
+ * someone already dismissed. Each row this loop actually patches gets a
+ * scheduled write-back to the sim; `convex/writeback.ts`'s own guard refuses
+ * a synthesised or unconfirmed row rather than this call site filtering them.
  */
 export const confirmApproved = mutation({
   args: { recommendationIds: v.array(v.id('recommendations')) },
@@ -83,7 +82,7 @@ export const confirmApproved = mutation({
       const recommendation = await ctx.db.get('recommendations', id)
       if (!recommendation || recommendation.status !== 'proposed') continue
       await ctx.db.patch('recommendations', id, { status: 'approved' })
-      // WRITE-BACK CALL SITE: schedule convex/writeback.ts's action for `id` here.
+      await ctx.scheduler.runAfter(0, internal.writeback.post, { recommendationId: id })
     }
     return null
   },
