@@ -86,9 +86,13 @@ function RuleEntry({ rule }: { rule: Rule }) {
           )}
         </Metadata>
 
-        <Metadata label="Priority">
-          <span className="tabular-nums">{rule.priority}</span>
-        </Metadata>
+        {/* Gap-only metadata, so the row is absent on a rule that asks nothing
+            rather than showing a number nothing reads. See #32. */}
+        {rule.priority === undefined ? null : (
+          <Metadata label="Priority">
+            <span className="tabular-nums">{rule.priority}</span>
+          </Metadata>
+        )}
       </dl>
 
       <ul className="flex flex-col gap-4">
@@ -122,7 +126,8 @@ export function Rules() {
           Every recommendation and every question this system produces comes from one of these{' '}
           <span className="tabular-nums">{pack.length}</span> rules. Each one carries the guidance
           line it rests on, quoted from the source and linked, so the guidance can be checked
-          rather than trusted. Priority orders what a call asks first, and 1 is highest.
+          rather than trusted. Priority orders what a call asks first, and 1 is highest, so
+          only a rule that asks the patient something carries one.
         </p>
         <Alert>
           <AlertTitle>These rules are a start on NHS screening, not the whole of it.</AlertTitle>

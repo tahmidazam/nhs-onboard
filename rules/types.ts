@@ -108,8 +108,14 @@ export interface Rule {
   confidenceFloor?: Confidence
   /** 'all', or codes generated from countryGuides at build time. See ADR 15. */
   countries: 'all' | string[]
-  /** 1 is highest. The adjudicator fills a call from priority order. */
-  priority: 1 | 2 | 3
+  /**
+   * 1 is highest. The adjudicator fills a call from priority order, so this is
+   * gap-only metadata: absent on a rule whose `evaluate` asks the patient
+   * nothing, because nothing reads a priority on a recommendation. Every gap
+   * the adjudicator can receive carries one, since a rule declaring none emits
+   * none. Held by rules/coverage.test.ts against what `evaluate` does. See #32.
+   */
+  priority?: 1 | 2 | 3
   /** Prose, rendered on /rules. What this rule reads to decide. */
   reads: string
   evaluate(profile: PatientProfile): RuleOutcome[]
