@@ -88,10 +88,46 @@ Anything else becomes a referral.
 `book_appointment`, `share_record`, `process_document`, and `messaging_action`
 (SMS or email to the patient, with `allowReply`).
 
+## What the sim does not hold
+
+The GP record carries `problems`, `allergies`, `medications` and `miscCodes`.
+That is the complete set. Verified across 55 patients: **no immunisations, no
+family history, no smoking or alcohol status.** Rules keying off those have
+nothing to read. Rules keying off problems and medications work on every patient.
+
+`ehr-record` is read-only history. `save_problem` and `save_allergy` create
+separate `problem` and `allergy` resources and leave `ehr-record.version` at 1.
+To render one merged list, union `ehr-record.data.problems` with sibling
+`problem` resources and hide any generated row whose key matches the new
+resource's `sourceProblemKey`, formatted `${ehrRecordId}:${index}`, e.g. `r-56:1`.
+
 ## Gotchas
 
+**Service capacity is finite and does not refill with time.** `order_test`,
+`schedule_visit` and bare `book_appointment` consume a slot: 6 at gp, 4 at
+diagnostics, 4 at community, 2 at hospital. Exhaustion returns
+`409 {"error":"No service capacity"}`. A slot frees only when its resource
+reaches a terminal state. Session-based booking (`sessionId`, `sessionVersion`,
+`startsAt`) returns `capacityReserved: false` and bypasses the cap. Repeated
+demos exhaust diagnostics after four test orders.
+
+**Writes persist and the world never resets.** Re-POSTing `/api/keys` with the
+same team name returns the same key and world with `"created": false`. Team names
+lowercase and strip whitespace but keep hyphens, so `nhs-onboard` and
+`nhs onboard` are different worlds.
+
+**`visibleTo` derives from the calling site.** `draft_prescription` via
+`/api/sites/gp/actions` gives `["pharmacy","gp","patient"]`. The same action via
+`/api/nhs/eps/actions` gives `["pharmacy","patient"]` and never appears in the GP
+view. Write through `/api/sites/gp/actions` and read the FHIR projection from
+`/api/nhs/eps?patient=X`.
+
+**`text` is silently dropped** on `save_problem`, `create_task` and
+`create_referral`, landing as `data: {}`. Carry the evidence in `title`.
+
 `createdAt` is simulation time, not wall clock. Read `/api/clock` and render sim
-time.
+time. Sim time only advances on a mutation, so a running clock looks frozen to
+pollers.
 
 Actions mutating an existing resource need `resourceId` and `expectedVersion`.
 A stale version returns 409; re-read the resource and retry with its current
@@ -101,5 +137,18 @@ The `control` site and every `/api/control/*` path need an operator token, so
 patient creation and incident injection stay out of reach. Work with the 50,000
 patients that exist.
 
-SNOMED coverage is a document-annotation catalogue only. The GP record's own
-codes are placeholders like `SIM-PROBLEM-1`. Use dm+d for medicines coding.
+`process_document` accepts SNOMED codes from a ten-concept catalogue only:
+`44054006`, `38341003`, `59621000`, `55822004`, `73211009`, `195967001`,
+`53741008`, `35489007`, `235595009`, `414916001`. The GP record's own codes are
+placeholders like `SIM-PROBLEM-1`. Use dm+d for medicines coding.
+
+Lifecycles are strict. Prescription runs `draft` to `reviewed` to `approved` to
+`dispensed` to `collected`; a skipped step returns `409 "Invalid lifecycle
+transition"`.
+
+Two error shapes. Engine errors are `{"error":"<sentence>"}`. Validation errors
+are `{"error":"<JSON string of issues>"}`, so parse the value to read
+`path` and `message`.
+
+Sustained bursts return bodyless `502`s for around 30 seconds with no `429` and
+no rate-limit headers. Retry on an empty response and pace bursts.
