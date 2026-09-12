@@ -91,8 +91,8 @@ pnpm data:dmd          # dm+d XML to data/dmd.json
 pnpm data:seed         # loads all of it into Convex
 ```
 
-**One person runs `data:seed`, once.** You share a deployment, so running it
-twice duplicates every row.
+`data:seed` builds JSONL per table and loads each with `convex import --replace`,
+so running it twice leaves the same rows. Safe to re-run after changing a parser.
 
 ### 5. Run it
 
@@ -179,7 +179,7 @@ pnpm exec convex env set --prod SIM_KEY sim-...
 pnpm exec convex env set --prod SIM_ORIGIN https://sim.animahacks.com
 pnpm exec convex env set --prod VAPI_PRIVATE_KEY ...
 
-VITE_CONVEX_URL=<production url> pnpm data:seed
+pnpm data:seed --prod
 ```
 
 Point the Vapi webhook at the production Convex HTTP URL, which is the

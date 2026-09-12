@@ -43,14 +43,17 @@ export const BRAND_SOURCES: BrandSource[] = [
   },
 ]
 
-/** Covers 44 countries including Ukraine, Russia, Poland, Nigeria, Philippines. */
+/**
+ * Compiled from 44 national brand registries, but the table is `d(k, name, ing,
+ * rxcui)` with no country column. A brand resolves to its ingredient without
+ * telling us which market it came from, so rows are tagged `XX`.
+ */
 export const INTERNATIONAL_FALLBACK = {
   file: 'idd.sqlite',
   exportedTo: 'idd.csv',
   via: 'idd' as const,
   rows: 424_357,
   generics: 11_734,
-  countries: 44,
 }
 
 /** Total brands resolvable across every source. Shown in the UI. */
@@ -59,6 +62,22 @@ export const TOTAL_BRANDS =
 
 export function sourceForCountry(country: string): BrandSource | undefined {
   return BRAND_SOURCES.find((s) => s.country === country.toUpperCase())
+}
+
+export interface SelectableCountry {
+  code: string
+  label: string
+}
+
+/**
+ * Countries the onboarding country control may offer. Limited to
+ * `BRAND_SOURCES` so an operator cannot pick a country whose brand lookup
+ * silently fails. See ADR 9 and ADR 12's "silent filtering" concern in
+ * reverse: the point here is that a country not on this list must not be
+ * pickable at all.
+ */
+export function selectableCountries(): SelectableCountry[] {
+  return BRAND_SOURCES.map((s) => ({ code: s.country, label: s.label }))
 }
 
 /** Normalise a brand string to the lookup key used by every dataset. */

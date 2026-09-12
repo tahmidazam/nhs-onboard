@@ -64,6 +64,9 @@ Rationale lives in `docs/adr/`. Read the ADR before changing behaviour it covers
 | [13](docs/adr/0013-rules-are-typed-typescript-modules.md) | Rules are typed TypeScript modules. Supersedes ADR 5's YAML clause. |
 | [14](docs/adr/0014-rule-output-inherits-the-weakest-evidence.md) | A rule's output inherits the weakest evidence under it. |
 | [15](docs/adr/0015-country-guides-gate-and-cite.md) | Country guides gate a rule and cite it. They never ground it. |
+| [16](docs/adr/0016-extraction-is-the-only-model-stage.md) | Extraction is the only model stage. The adjudicator is code. |
+| [17](docs/adr/0017-quotes-are-anchored-by-containment.md) | Quotes are anchored by containment. An unanchored claim is demoted, not dropped. |
+| [18](docs/adr/0018-translation-sits-in-the-recovery-path.md) | Translation sits in the recovery path. Matching does not. |
 
 ## Data sources
 
@@ -73,7 +76,7 @@ All keyless, all under `data/`. `pnpm data:fetch` pulls the large ones.
 |---|---|---|
 | `bd_medicines.csv` | 21,714 Bangladeshi brands to generics, from MEDEX | open dataset |
 | `indian_medicines.csv` | 253,973 Indian brands to composition | open dataset |
-| `idd.sqlite` | 425,528 international brands across 44 countries | CC BY 4.0 |
+| `idd.sqlite` | 425,528 international brands, no country column | CC BY 4.0 |
 | `formulary.json` | 3,214 Cambridge and Peterborough entries with RAG status | scraped once at build time |
 | `bnf.csv` | 54,437 NHSBSA BNF rows | OGL v3.0 |
 | `sim.json` | NHS simulator OpenAPI spec | |
@@ -97,13 +100,32 @@ EDQM covers dose forms and routes in 35 languages, none of them Bengali, Hindi o
 Urdu, and its API needs HMAC-SHA512 auth with an emailed credential. It never
 maps drug names.
 
-The sim carries no sex or gender. It is absent from patient items and from the
-FHIR projection at `/api/nhs/pds/Patient/{id}`. Cervical, breast and AAA
-screening are sex-gated, so they emit a Gap for the call rather than a
-Recommendation, and none of them is in the shipped pack. We do not synthesise
-sex: ADR 8 synthesises immunisations because the alternative was abandoning
-catch-up entirely, and here the alternative is a question on a call we are
-already making.
+The sim carries no sex field. Verified across 240 patients sampled through the
+population, all eight site views, six FHIR projections at
+`/api/nhs/pds/Patient/{id}`, the PDS capability statement, and the OpenAPI spec,
+which contains no occurrence of `sex` or `gender`. A patient item holds `id`,
+`name`, `goals`, `needs`, `localIds`, `birthDate`, `synthetic`, `conditions`, and
+`death` on the few who have died.
+
+Gendered pronouns do appear in narrative text, in `observation.text` and
+`encounter.text`, consistently per patient and for some patients only: 16 female
+pronouns on SIM-000001, 14 male on SIM-000002, none at all on SIM-000015. Our
+pipeline never sees them. `patients.truth` freezes conditions, medications,
+allergies and immunisations, and ADR 10's degrader assembles every document from
+that snapshot, so narrative prose does not reach a PresentedDocument and cannot
+reach a Claim.
+
+Reading sex out of those pronouns would also be name inference with extra steps,
+since the sim generates both from one seed, and ADR 9 rejects inferring origin
+from a name for reasons that apply here unchanged.
+
+So cervical, breast and AAA screening are sex-gated with nothing to read. They
+emit a Gap for the call rather than a Recommendation, and none of them is in the
+shipped pack. We do not synthesise sex: ADR 8 synthesises immunisations because
+the alternative was abandoning catch-up entirely, and here the alternative is a
+question on a call we are already making. The other route, if those three
+programmes are ever wanted in the demo, is an operator-supplied sex control at
+onboarding beside the country control, which ADR 9's reasoning already licenses.
 
 The rule pack covers six programmes. Not covered: cervical, breast, AAA,
 newborn blood spot, newborn hearing, NIPE, antenatal and newborn sickle cell,

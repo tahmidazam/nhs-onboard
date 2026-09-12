@@ -1,21 +1,17 @@
 /**
- * Loads data/ into the Convex `brands` and `formulary` tables.
+ * Builds JSONL for every reference table, then loads it with `convex import`.
  *
  *   pnpm data:fetch
  *   pnpm data:seed
  *
- * Run once per deployment. Both developers share one deployment, so one of you
- * runs it. Re-running duplicates rows.
+ * Each table is imported with --replace, so running this twice leaves the same
+ * rows. Add --prod to target the production deployment.
  */
-import { readFileSync, existsSync } from 'node:fs'
-import { ConvexHttpClient } from 'convex/browser'
-import { api, internal } from '../convex/_generated/api'
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 
-const URL = process.env.VITE_CONVEX_URL
-if (!URL) throw new Error('VITE_CONVEX_URL is not set. Copy .env.example to .env.local.')
-
-const client = new ConvexHttpClient(URL)
-const BATCH = 500
+const OUT = 'data/seed'
+const prod = process.argv.includes('--prod')
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 
@@ -42,100 +38,80 @@ function parseCsv(text: string): Record<string, string>[] {
     .map((r) => Object.fromEntries(header.map((h, i) => [h.trim(), r[i]])))
 }
 
-async function send<T>(rows: T[], fn: (batch: T[]) => Promise<unknown>, label: string) {
-  for (let i = 0; i < rows.length; i += BATCH) {
-    await fn(rows.slice(i, i + BATCH))
-    process.stdout.write(`\r${label}: ${Math.min(i + BATCH, rows.length)}/${rows.length}`)
+mkdirSync(OUT, { recursive: true })
+
+/** Accumulates rows per table so several sources can share one destination. */
+const tables = new Map<string, unknown[]>()
+
+function add(table: string, rows: unknown[]) {
+  tables.set(table, (tables.get(table) ?? []).concat(rows))
+}
+
+function readJson<T>(path: string, hint: string): T[] {
+  if (!existsSync(path)) {
+    console.log(`skip    ${path}. ${hint}`)
+    return []
   }
-  process.stdout.write('\n')
+  return JSON.parse(readFileSync(path, 'utf8')) as T[]
 }
 
-async function seedBangladesh() {
-  const path = 'data/bd_medicines.csv'
-  if (!existsSync(path)) return console.log('skip    bd_medicines.csv')
+function brandsFromCsv(
+  path: string,
+  brandColumn: string,
+  genericColumn: string,
+  country: string,
+  via: string,
+) {
+  if (!existsSync(path)) return console.log(`skip    ${path}`)
   const seen = new Set<string>()
   const rows = parseCsv(readFileSync(path, 'utf8'))
-    .map((r) => ({ brand: (r['brand name'] ?? '').trim(), generic: (r.generic ?? '').trim() }))
+    .map((r) => ({ brand: (r[brandColumn] ?? '').trim(), generic: (r[genericColumn] ?? '').trim() }))
     .filter((r) => r.brand && r.generic)
-    .map((r) => ({ key: norm(r.brand), brand: r.brand, generic: r.generic, country: 'BD', via: 'bd-medex' }))
+    .map((r) => ({ key: norm(r.brand), brand: r.brand, generic: r.generic, country, via }))
     .filter((r) => r.key && !seen.has(r.key) && seen.add(r.key))
-  await send(rows, (batch) => client.mutation(internal.brands.insertBrands, { rows: batch }), 'BD brands')
+  add('brands', rows)
+  console.log(`${via}: ${rows.length}`)
 }
 
-async function seedIndia() {
-  const path = 'data/indian_medicines.csv'
-  if (!existsSync(path)) return console.log('skip    indian_medicines.csv')
-  const seen = new Set<string>()
-  const rows = parseCsv(readFileSync(path, 'utf8'))
-    .map((r) => ({ brand: (r.name ?? '').trim(), generic: (r.short_composition1 ?? '').trim() }))
-    .filter((r) => r.brand && r.generic)
-    .map((r) => ({ key: norm(r.brand), brand: r.brand, generic: r.generic, country: 'IN', via: 'indian-medicines' }))
-    .filter((r) => r.key && !seen.has(r.key) && seen.add(r.key))
-  await send(rows, (batch) => client.mutation(internal.brands.insertBrands, { rows: batch }), 'IN brands')
-}
+brandsFromCsv('data/bd_medicines.csv', 'brand name', 'generic', 'BD', 'bd-medex')
+brandsFromCsv('data/indian_medicines.csv', 'name', 'short_composition1', 'IN', 'indian-medicines')
 
-/** 425,528 brands across 44 countries. Fallback when no country dataset matches. */
-async function seedInternational() {
+/**
+ * IDD carries no country column, so its rows are tagged XX and act as the
+ * fallback when no country dataset matches.
+ */
+{
   const path = 'data/idd.csv'
-  if (!existsSync(path)) return console.log('skip    idd.csv. Run: bash scripts/export-idd.sh')
-  const seen = new Set<string>()
-  const rows = parseCsv(readFileSync(path, 'utf8'))
-    .filter((r) => r.key && r.generic)
-    .map((r) => ({ key: r.key, brand: r.brand, generic: r.generic, country: 'XX', via: 'idd' }))
-    .filter((r) => !seen.has(r.key) && seen.add(r.key))
-  await send(rows, (batch) => client.mutation(internal.brands.insertBrands, { rows: batch }), 'IDD brands')
+  if (!existsSync(path)) console.log(`skip    ${path}. Run: bash scripts/export-idd.sh`)
+  else {
+    const seen = new Set<string>()
+    const rows = parseCsv(readFileSync(path, 'utf8'))
+      .filter((r) => r.key && r.generic)
+      .map((r) => ({ key: r.key, brand: r.brand, generic: r.generic, country: 'XX', via: 'idd' }))
+      .filter((r) => !seen.has(r.key) && seen.add(r.key))
+    add('brands', rows)
+    console.log(`idd: ${rows.length}`)
+  }
 }
 
-/** dm+d VTM to prescribable VMP. Produced by scripts/parse-dmd.ts. */
-async function seedDmd() {
-  const path = 'data/dmd.json'
-  if (!existsSync(path)) return console.log('skip    dmd.json. Run: pnpm exec tsx scripts/parse-dmd.ts')
-  const rows = JSON.parse(readFileSync(path, 'utf8')) as {
-    key: string; vtmId: string; vtmName: string
-    vmpId?: string; vmpName?: string; bnfCode?: string; atcCode?: string
-  }[]
-  await send(rows.filter((r) => r.key), (batch) => client.mutation(internal.brands.insertDmd, { rows: batch }), 'dm+d')
-}
+add('dmd', readJson<{ key: string }>('data/dmd.json', 'Run: pnpm data:dmd').filter((r) => r.key))
+add('countryGuides', readJson('data/country-guides.json', 'Run: pnpm data:countries'))
 
-/** UKHSA migrant health guidance. Produced by scripts/parse-country-guides.ts. */
-async function seedCountryGuides() {
-  const path = 'data/country-guides.json'
-  if (!existsSync(path)) return console.log('skip    country-guides.json. Run: pnpm data:countries')
-  const rows = JSON.parse(readFileSync(path, 'utf8')) as {
-    countrySlug: string; country: string; section: string; text: string
-    citations: { url: string; label: string }[]; emphasis?: boolean
-  }[]
-  await send(rows, (batch) => client.mutation(internal.brands.insertCountryGuides, { rows: batch }), 'Country guides')
-}
-
-/** UKHSA migrant health guidance. Produced by scripts/parse-country-guides.ts. */
-async function seedCountryGuides() {
-  const path = 'data/country-guides.json'
-  if (!existsSync(path)) return console.log('skip    country-guides.json. Run: pnpm data:countries')
-  const rows = JSON.parse(readFileSync(path, 'utf8')) as {
-    countrySlug: string; country: string; section: string; text: string
-    citations: { url: string; label: string }[]; emphasis?: boolean
-  }[]
-  await send(rows, (batch) => client.mutation(internal.brands.insertCountryGuides, { rows: batch }), 'Country guides')
-}
-
-async function seedFormulary() {
-  const path = 'data/formulary.json'
-  if (!existsSync(path)) return console.log('skip    formulary.json')
-  const raw = JSON.parse(readFileSync(path, 'utf8')) as {
-    drug: string; chapter: string; tlAlt: string
-  }[]
-  const rows = raw
+add(
+  'formulary',
+  readJson<{ drug: string; chapter?: string; tlAlt?: string }>('data/formulary.json', '')
     .filter((r) => r.drug)
-    .map((r) => ({ key: norm(r.drug), drug: r.drug, chapter: r.chapter ?? '', rag: r.tlAlt ?? '' }))
-  await send(rows, (batch) => client.mutation(internal.brands.insertFormulary, { rows: batch }), 'Formulary')
-}
+    .map((r) => ({ key: norm(r.drug), drug: r.drug, chapter: r.chapter ?? '', rag: r.tlAlt ?? '' })),
+)
 
-await seedBangladesh()
-await seedIndia()
-await seedInternational()
-await seedDmd()
-await seedCountryGuides()
-await seedCountryGuides()
-await seedFormulary()
-console.log(await client.query(api.brands.counts, {}))
+for (const [table, rows] of tables) {
+  if (!rows.length) continue
+  const file = `${OUT}/${table}.jsonl`
+  writeFileSync(file, rows.map((r) => JSON.stringify(r)).join('\n') + '\n')
+  console.log(`\nimporting ${rows.length} rows into ${table}`)
+  execFileSync(
+    'pnpm',
+    ['exec', 'convex', 'import', '--table', table, '--replace', '--yes', ...(prod ? ['--prod'] : []), file],
+    { stdio: 'inherit' },
+  )
+}
