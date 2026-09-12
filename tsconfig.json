@@ -5,5 +5,5 @@
     "resolveJsonModule": true, "isolatedModules": true, "noEmit": true, "jsx": "react-jsx",
     "strict": true, "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src", "convex"]
+  "include": ["src", "convex", "rules"]
 }

@@ -87,6 +87,12 @@ export interface Gap {
   ruleId: string
   status: 'open' | 'answered'
   answer?: string
+  /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */
+  outputKey?: string
+  /** True when the evidence chain touches a synthesised document. See ADR 14. */
+  synthesised?: boolean
+  /** 1 is highest. The adjudicator fills a call from priority order. */
+  priority?: number
 }
 
 export type RecommendationKind = 'prescription' | 'referral' | 'screening' | 'immunisation' | 'test'
@@ -107,6 +113,12 @@ export interface Recommendation {
   target: SimTarget
   simResourceId?: string
   status: 'proposed' | 'approved' | 'dismissed'
+  /** The rule that produced this. See ADR 13. */
+  ruleId?: string
+  /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */
+  outputKey?: string
+  /** True when the evidence chain touches a synthesised document. See ADR 14. */
+  synthesised?: boolean
 }
 
 export type PipelineStage =

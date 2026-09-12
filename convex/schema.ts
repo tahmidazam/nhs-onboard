@@ -97,6 +97,12 @@ export default defineSchema({
     ruleId: v.string(),
     status: v.union(v.literal('open'), v.literal('answered')),
     answer: v.optional(v.string()),
+    /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */
+    outputKey: v.optional(v.string()),
+    /** True when the evidence chain touches a synthesised document. See ADR 14. */
+    synthesised: v.optional(v.boolean()),
+    /** 1 is highest. The adjudicator fills a call from priority order. */
+    priority: v.optional(v.number()),
   }).index('by_patient', ['patientId']),
 
   /** `target` is the sim site that owns the resource after write-back. */
@@ -122,6 +128,12 @@ export default defineSchema({
     ),
     simResourceId: v.optional(v.string()),
     status: v.union(v.literal('proposed'), v.literal('approved'), v.literal('dismissed')),
+    /** The rule that produced this. See ADR 13. */
+    ruleId: v.optional(v.string()),
+    /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */
+    outputKey: v.optional(v.string()),
+    /** True when the evidence chain touches a synthesised document. See ADR 14. */
+    synthesised: v.optional(v.boolean()),
   }).index('by_patient', ['patientId']),
 
   /** Foreign brand to generic. Seeded by `pnpm data:seed`. */
