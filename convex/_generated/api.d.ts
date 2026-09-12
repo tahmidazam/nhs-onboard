@@ -28,13 +28,17 @@ import type * as lib_degradeVaccination from "../lib/degradeVaccination.js";
 import type * as lib_guard from "../lib/guard.js";
 import type * as lib_matchRecovery from "../lib/matchRecovery.js";
 import type * as lib_normalisePatient from "../lib/normalisePatient.js";
+import type * as lib_pipelineStages from "../lib/pipelineStages.js";
+import type * as lib_simAction from "../lib/simAction.js";
 import type * as lib_simClient from "../lib/simClient.js";
 import type * as map from "../map.js";
 import type * as patients from "../patients.js";
+import type * as pipeline from "../pipeline.js";
 import type * as recovery from "../recovery.js";
 import type * as review from "../review.js";
 import type * as rules from "../rules.js";
 import type * as sim from "../sim.js";
+import type * as writeback from "../writeback.js";
 
 import type {
   ApiFromModules,
@@ -63,13 +67,17 @@ declare const fullApi: ApiFromModules<{
   "lib/guard": typeof lib_guard;
   "lib/matchRecovery": typeof lib_matchRecovery;
   "lib/normalisePatient": typeof lib_normalisePatient;
+  "lib/pipelineStages": typeof lib_pipelineStages;
+  "lib/simAction": typeof lib_simAction;
   "lib/simClient": typeof lib_simClient;
   map: typeof map;
   patients: typeof patients;
+  pipeline: typeof pipeline;
   recovery: typeof recovery;
   review: typeof review;
   rules: typeof rules;
   sim: typeof sim;
+  writeback: typeof writeback;
 }>;
 
 /**
