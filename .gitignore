@@ -12,3 +12,6 @@ dist
 # The rest come from the team Google Drive. See README.
 data/
 data/seed/
+
+# Agent worktrees live inside the repo. Never commit one.
+.claude/worktrees/
