@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchRecovery } from './matchRecovery'
+import { matchRecovery, recoveryDetail } from './matchRecovery'
 import type { Truth } from './matchRecovery'
 import type { Claim } from '../../src/types'
 
@@ -168,5 +168,64 @@ describe('matchRecovery anchoring predicate', () => {
     ]
 
     expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 1 })
+  })
+})
+
+describe('recoveryDetail', () => {
+  it('names the facts nothing reached', () => {
+    const truth: Truth = {
+      ...emptyTruth,
+      conditions: ['asthma', 'type 2 diabetes'],
+      allergies: ['penicillin'],
+    }
+    const claims: Claim[] = [claim({ kind: 'condition', verbatim: 'asthma', resolved: 'asthma' })]
+
+    const missed = recoveryDetail(truth, claims)
+      .facts.filter((scored) => !scored.recovered)
+      .map((scored) => scored.fact)
+
+    expect(missed).toEqual(['type 2 diabetes', 'penicillin'])
+  })
+
+  it('tags each fact with the kind it came from', () => {
+    const truth: Truth = { ...emptyTruth, conditions: ['asthma'], medications: ['Paracetamol'], allergies: ['penicillin'] }
+
+    expect(recoveryDetail(truth, []).facts.map((scored) => scored.kind)).toEqual([
+      'condition',
+      'medication',
+      'allergy',
+    ])
+  })
+
+  it('leaves a fact missed when only an unanchored claim reaches it', () => {
+    const truth: Truth = { ...emptyTruth, conditions: ['asthma'] }
+    const claims: Claim[] = [
+      claim({
+        kind: 'condition',
+        verbatim: 'asthma',
+        resolved: 'asthma',
+        source: { kind: 'document', id: 'doc-1', quote: 'asthma', verified: false },
+      }),
+    ]
+
+    expect(recoveryDetail(truth, claims).facts).toEqual([
+      { kind: 'condition', fact: 'asthma', recovered: false },
+    ])
+  })
+
+  it('omits immunisations, which carry no ground truth to check', () => {
+    const truth: Truth = { ...emptyTruth, conditions: ['asthma'], immunisations: ['BCG'] }
+
+    const detail = recoveryDetail(truth, [])
+    expect(detail.total).toBe(1)
+    expect(detail.facts.map((scored) => scored.fact)).toEqual(['asthma'])
+  })
+
+  it('agrees with the counts matchRecovery reports', () => {
+    const truth: Truth = { ...emptyTruth, conditions: ['asthma', 'type 2 diabetes'] }
+    const claims: Claim[] = [claim({ kind: 'condition', verbatim: 'asthma', resolved: 'asthma' })]
+
+    const detail = recoveryDetail(truth, claims)
+    expect({ total: detail.total, recovered: detail.recovered }).toEqual(matchRecovery(truth, claims))
   })
 })

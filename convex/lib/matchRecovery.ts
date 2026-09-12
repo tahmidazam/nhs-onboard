@@ -46,27 +46,52 @@ function matchesByIngredient(fact: string, claims: MatchableClaim[]): boolean {
   })
 }
 
+/** One fact from the truth snapshot with the verdict the matcher reached on it. */
+export interface ScoredFact {
+  kind: 'condition' | 'medication' | 'allergy'
+  fact: string
+  recovered: boolean
+}
+
+export interface RecoveryDetail extends RecoveryMetric {
+  facts: ScoredFact[]
+}
+
 /**
- * Scores a truth snapshot against extracted claims. Immunisations are always
- * synthesised (ADR 8) and are excluded from both `total` and `recovered`.
- * Unanchored claims are excluded from `recovered` only; `total` comes from
- * `truth` and is unaffected. See ADR 17.
+ * Scores a truth snapshot against extracted claims, naming every fact.
+ * Immunisations are always synthesised (ADR 8) and appear nowhere here.
+ * Unanchored claims cannot recover a fact; the snapshot is unaffected by
+ * them, so a fact they alone would have matched stays missed. See ADR 17.
  */
-export function matchRecovery(truth: Truth, claims: MatchableClaim[]): RecoveryMetric {
+export function recoveryDetail(truth: Truth, claims: MatchableClaim[]): RecoveryDetail {
   // Filtered once, before the per-kind splits: an unanchored claim is one the
   // extractor may have manufactured, and must not score as a recovered fact.
   const anchored = claims.filter(isAnchored)
 
-  const medicationClaims = anchored.filter((claim) => claim.kind === 'medication')
-  const conditionClaims = anchored.filter((claim) => claim.kind === 'condition')
-  const allergyClaims = anchored.filter((claim) => claim.kind === 'allergy')
+  const scoreAll = (
+    kind: ScoredFact['kind'],
+    facts: string[],
+    matches: (fact: string, claims: MatchableClaim[]) => boolean,
+  ): ScoredFact[] => {
+    const ofKind = anchored.filter((claim) => claim.kind === kind)
+    return facts.map((fact) => ({ kind, fact, recovered: matches(fact, ofKind) }))
+  }
 
-  const recoveredMedications = truth.medications.filter((fact) => matchesByIngredient(fact, medicationClaims))
-  const recoveredConditions = truth.conditions.filter((fact) => matchesByText(fact, conditionClaims))
-  const recoveredAllergies = truth.allergies.filter((fact) => matchesByText(fact, allergyClaims))
+  const facts = [
+    ...scoreAll('condition', truth.conditions, matchesByText),
+    ...scoreAll('medication', truth.medications, matchesByIngredient),
+    ...scoreAll('allergy', truth.allergies, matchesByText),
+  ]
 
   return {
-    total: truth.conditions.length + truth.medications.length + truth.allergies.length,
-    recovered: recoveredMedications.length + recoveredConditions.length + recoveredAllergies.length,
+    total: facts.length,
+    recovered: facts.filter((scored) => scored.recovered).length,
+    facts,
   }
+}
+
+/** The counts alone, for the board column and the stored metric. */
+export function matchRecovery(truth: Truth, claims: MatchableClaim[]): RecoveryMetric {
+  const { total, recovered } = recoveryDetail(truth, claims)
+  return { total, recovered }
 }

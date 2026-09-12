@@ -27,7 +27,11 @@ function useRecoveryColumn(recoveryByPatientId: Map<Id<'patients'>, RecoveryMetr
         id: 'recovery',
         header: 'Recovery',
         cell: ({ row }) => (
-          <RecoveryCell patientName={row.original.name} metric={recoveryByPatientId.get(row.original._id)} />
+          <RecoveryCell
+            patientId={row.original._id}
+            patientName={row.original.name}
+            metric={recoveryByPatientId.get(row.original._id)}
+          />
         ),
       }),
     [recoveryByPatientId],

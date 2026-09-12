@@ -53,6 +53,24 @@ export function CallSheet({ patientId, patientName, open, onOpenChange }: CallSh
             </p>
           ) : (
             <>
+              <div className="flex flex-col gap-3">
+                <h2 className="text-sm font-medium">What the assistant will ask</h2>
+                {context.goals.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    The rules left no open questions, so a call has nothing to recover. Run the
+                    pipeline first if you expected some.
+                  </p>
+                ) : (
+                  <ol className="flex list-decimal flex-col gap-2 pl-5">
+                    {context.goals.map((goal) => (
+                      <li key={goal} className="text-sm">
+                        {goal}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+
               <PhoneCallForm patientId={patientId} questionCount={context.goals.length} />
               <CallPanel
                 patientName={context.patientName}
@@ -63,7 +81,7 @@ export function CallSheet({ patientId, patientName, open, onOpenChange }: CallSh
                   await register({ patientId, vapiCallId })
                 }}
               />
-              <StoredTranscript patientId={patientId} />
+              <StoredTranscript patientId={patientId} patientName={context.patientName} />
             </>
           )}
         </div>
