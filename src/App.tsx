@@ -3,6 +3,7 @@ import { api } from '../convex/_generated/api'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { CallPanel } from '@/components/call/CallPanel'
+import { PhoneCallForm } from '@/components/call/PhoneCallForm'
 
 /**
  * Placeholder shell for the voice path. The board route replaces it.
@@ -41,13 +42,16 @@ export default function App() {
           </div>
         </>
       ) : (
-        <CallPanel
-          patientName={patient.name}
-          goals={questions ?? []}
-          onCallStarted={async (vapiCallId) => {
-            await register({ patientId: patient._id, vapiCallId })
-          }}
-        />
+        <>
+          <PhoneCallForm patientId={patient._id} questionCount={(questions ?? []).length} />
+          <CallPanel
+            patientName={patient.name}
+            goals={questions ?? []}
+            onCallStarted={async (vapiCallId) => {
+              await register({ patientId: patient._id, vapiCallId })
+            }}
+          />
+        </>
       )}
     </div>
   )
