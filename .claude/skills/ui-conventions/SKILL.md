@@ -139,6 +139,30 @@ Column definitions carry sorting, filtering and cell rendering. Do not filter or
 sort a row array by hand before passing it in, and do not render a table as a
 list of `Card`s.
 
+## Pagination
+
+`pnpm dlx shadcn@latest add pagination`. Compose `Pagination`,
+`PaginationContent`, `PaginationItem`, `PaginationLink`, `PaginationPrevious`,
+`PaginationNext` and `PaginationEllipsis`. The active page is `isActive` on
+`PaginationLink`.
+
+The parts render anchors and take `href`. The patient finder is a dialog and
+pages in place, so swap the element with Base UI's `render` prop rather than
+leaving `href="#"` to navigate.
+
+There is no built-in disabled state on `PaginationPrevious` or `PaginationNext`.
+Disable them on the first and last page yourself.
+
+The simulator pages server-side: fixed page size of 30, `offset` only, and a
+`total` in the response. Set `manualPagination: true` and pass `pageCount` to
+TanStack Table. The default is client-side paging, which would page the 30 rows
+already fetched and silently hide the other 49,970.
+
+50,000 patients is over 1,600 pages, so render a window of pages around the
+current one with `PaginationEllipsis` rather than every number. Paging to page
+1,412 is not a real journey. Search and the random pick are how a patient is
+found, and pagination exists to make the list feel finite.
+
 ## Density
 
 This is an operational tool, so it should look like one. A wall of evenly spaced

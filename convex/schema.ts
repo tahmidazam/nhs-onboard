@@ -78,6 +78,9 @@ export default defineSchema({
       v.object({
         brand: v.string(),
         generic: v.optional(v.string()),
+        ukIngredient: v.optional(v.string()),
+        prescribable: v.optional(v.string()),
+        vmpId: v.optional(v.string()),
         ukFormularyName: v.optional(v.string()),
         rag: v.optional(v.string()),
         via: v.union(
