@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { action, internalMutation, internalQuery, mutation } from './_generated/server'
 import { internal } from './_generated/api'
+import type { Id } from './_generated/dataModel'
 
 /**
  * Places the outbound call and stores the transcript Vapi sends back.
@@ -160,7 +161,10 @@ export const ingestClaims = internalMutation({
 export const place = action({
   args: { patientId: v.id('patients'), number: v.string(), language: v.optional(v.string()) },
   returns: v.object({ callId: v.id('calls'), vapiCallId: v.optional(v.string()) }),
-  handler: async (ctx, { patientId, number, language }) => {
+  handler: async (
+    ctx,
+    { patientId, number, language },
+  ): Promise<{ callId: Id<'calls'>; vapiCallId: string | undefined }> => {
     const key = process.env.VAPI_PRIVATE_KEY
     const assistantId = process.env.VAPI_ASSISTANT_ID
     const phoneNumberId = process.env.VAPI_PHONE_NUMBER_ID
