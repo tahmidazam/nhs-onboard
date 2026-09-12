@@ -53,6 +53,10 @@ Rationale lives in `docs/adr/`. Read the ADR before changing behaviour it covers
 | [6](docs/adr/0006-openai-agents-sdk.md) | `@openai/agents`, not the Anima ADK. |
 | [7](docs/adr/0007-vapi-owns-voice.md) | Vapi owns the voice transport. |
 | [8](docs/adr/0008-synthesised-immunisations-for-demo.md) | Immunisations and family history are synthesised for the demo and labelled. |
+| [9](docs/adr/0009-country-of-origin-is-supplied.md) | Country of origin is supplied by an operator or a call. Never inferred from a name. |
+| [10](docs/adr/0010-degrader-is-template-driven.md) | The degrader is template-driven. Code assembles documents, the model only translates. |
+| [11](docs/adr/0011-recovery-is-measured-against-a-frozen-snapshot.md) | Recovery is measured against a frozen snapshot with deterministic matching. |
+| [12](docs/adr/0012-patient-selection-is-arbitrary-and-visible.md) | Patient selection is random or searched, never curated. |
 
 ## Data sources
 
