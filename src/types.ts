@@ -19,6 +19,8 @@ export interface SourceRef {
   id: string
   /** Verbatim text the claim rests on. Highlighted in the source view. */
   quote: string
+  /** Quote anchored against the document by containment; absent where anchoring does not apply. See ADR 17. */
+  verified?: boolean
 }
 
 /** A patient as the sim holds them. Also the answer key for RecoveryMetric. */

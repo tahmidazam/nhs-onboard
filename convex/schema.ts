@@ -13,6 +13,8 @@ const sourceRef = v.object({
   kind: v.union(v.literal('document'), v.literal('transcript'), v.literal('sim-record')),
   id: v.string(),
   quote: v.string(),
+  /** Quote anchored against the document by containment; absent where anchoring does not apply. See ADR 17. */
+  verified: v.optional(v.boolean()),
 })
 
 export default defineSchema({
