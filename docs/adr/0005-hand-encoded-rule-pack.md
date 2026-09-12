@@ -38,5 +38,11 @@ Two encoding details: MMRV replaced MMR from 1 January 2026 and an 18-month
 appointment was added; cervical screening interval depends on HPV result, so
 HPV-negative 25 to 49 year olds move to 5-yearly.
 
+The MMRV date is about the routine programme and is not the boundary a catch-up
+rule branches on. The UKHSA algorithm keys on the patient's date of birth,
+before or on or after 1 January 2020, and `ukhsa-imm-mmr-under-12-months`
+encodes 2020 accordingly. Verified against the 5 June 2026 edition while
+encoding #15.
+
 `order_test` in the sim accepts six panels only (`fbc`, `ue`, `hba1c`, `lft`,
 `crp`, `lipids`). Rules needing anything else emit a referral.

@@ -88,19 +88,83 @@ colour means one thing across the whole app.
 | `patient-reported` | `secondary` |
 | `uncertain-mapping` | `outline` |
 
+## Routing
+
+TanStack Router, not react-router. Define the route tree in code rather than
+adding the file-based routing plugin, so there is no codegen step in the build.
+
 ## Layout
 
-Sidebar holds app navigation: Board, Rules, Sources. Its footer shows the sim
-clock and world name. Patients live in the table.
+Every route renders inside the shadcn `Sidebar`. Add it with
+`pnpm dlx shadcn@latest add sidebar` and use `SidebarProvider`, `Sidebar`,
+`SidebarInset` and `SidebarTrigger` as composed, rather than hand-rolling a nav
+column.
 
-Three surfaces:
+Sidebar navigation: Board, Rules, Sources. Its footer shows the sim clock and the
+world name.
 
-- `/` is the board. TanStack Table, status column, and the search that lets a
-  judge pick any patient.
+Three routes:
+
+- `/` is the board: every onboarded patient and their pipeline stage.
 - `/patient/:id` splits source documents against the extracted record with
   `ResizablePanelGroup`. Clicking a claim highlights its source span.
 - `/patient/:id/review` shows the three confidence columns, each row naming its
   destination in the sim.
+
+## Finding a patient
+
+A `Dialog` over the board, opened from a button in the board's header. Not a
+route, because selection is a transient action that ends by returning to the
+board, and on stage a navigation away and back is a chance to be on the wrong
+screen.
+
+Not a `Command` palette either. The flow is search or roll, read the record size,
+choose a country, then commit, which is a small form rather than a one-shot pick.
+
+The dialog is wide and holds a compact data table over the simulator's patients,
+a random pick, the record size, and the country select. Onboarding is the
+dialog's confirm action, and the dialog closes onto the board with the new row
+already present.
+
+Per `docs/adr/0012-patient-selection-is-arbitrary-and-visible.md`, re-rolling
+stays inside the dialog and in view.
+
+## Tables
+
+The board and the patient finder are both tables, driven by TanStack Table
+through the shadcn data table. Add it with `pnpm dlx shadcn@latest add
+data-table` and read the `tanstack-table` skill for the library API.
+
+Column definitions carry sorting, filtering and cell rendering. Do not filter or
+sort a row array by hand before passing it in, and do not render a table as a
+list of `Card`s.
+
+## Density
+
+This is an operational tool, so it should look like one. A wall of evenly spaced
+`Card`s with an icon and a heading in each is the house style of generated UI and
+reads as exactly that.
+
+Tabular data goes in a table. A `Card` is for one bounded thing that is genuinely
+its own object, such as a single document or a single recommendation. Grouped
+detail is `Tabs`, a `Sheet` or a description list, not three cards in a row.
+
+Reach for `Empty` for empty states rather than a centred card with an icon.
+
+## Pending states
+
+Nothing may freeze. Every button that starts a request goes disabled and shows a
+`Spinner` until it settles, keeping its label so the row does not reflow.
+
+Data loading in a table or a panel uses `Skeleton` shaped like the content it
+replaces, not a centred spinner on an empty page.
+
+Any wait that can exceed a second gets a `Progress` or a spinner with a sentence
+naming what is happening. "Reading the record from the simulator." Degradation
+and extraction both exceed a second.
+
+Convex queries expose `undefined` while loading. Render the skeleton on
+`undefined` rather than treating it as empty.
 
 ## Copy
 
