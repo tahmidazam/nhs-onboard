@@ -8,11 +8,37 @@ description: This repo's rules for shadcn components, Tailwind, and which of Toa
 The product is a clinical review tool. It should read as software a GP practice
 bought, so every choice below favours the ordinary over the expressive.
 
+## The preset
+
+Already initialised. Never run `shadcn init`, and never pass `--overwrite` to
+`add`.
+
+| Setting | Value |
+|---|---|
+| style | `base-luma` |
+| base | `base`, meaning **Base UI, not Radix** |
+| base colour | `neutral`, CSS variables |
+| icons | `lucide` |
+| font | Inter Variable, imported in `src/index.css` |
+
+Base UI component APIs differ from the Radix ones most training data describes.
+Run `pnpm dlx shadcn@latest docs <component>` and fetch the URLs it returns
+before writing a component.
+
+`src/lib/utils.ts` exports `cn()`. Fonts and colour tokens are wired in
+`src/index.css`. Do not add font imports or redefine tokens.
+
+Inter carries Latin, Greek, Cyrillic and Vietnamese. It has no Bengali or
+Devanagari, so a PresentedDocument in those scripts falls back to a system font.
+Load Noto Sans Bengali and Noto Sans Devanagari on the document surface before
+relying on how it renders.
+
 ## Tailwind
 
 shadcn components carry colour, typography, radius and shadow. Outside
 `src/components/ui/`, use layout utilities only: `flex`, `grid`, `gap-*`,
-`space-*`, `w-*`, `max-w-*`, `p-*`, `m-*`.
+`w-*`, `max-w-*`, `p-*`, `m-*`. Space children with `gap-*` rather than
+`space-*`, and size square elements with `size-*`.
 
 Semantic tokens carry everything else. Muted text is `text-muted-foreground`.
 Surfaces are `bg-card` and `bg-muted`. Edges are `border-border`.
@@ -29,9 +55,10 @@ grep -rnE '(text|bg|border)-(gray|slate|zinc|blue|red|green|amber)-[0-9]' src --
 Each of these has one job. Reaching for the wrong one is the most common way a UI
 starts reading as generated.
 
-**Toast** (`sonner`) reports the outcome of an async action the user just
-started, which they would otherwise not see finish. "Call connected." "Four
-actions written to the sim."
+**Toast** is Base UI's `toast`, since the preset uses Base UI. Do not install
+`sonner`, which is the Radix and Aria choice. It reports the outcome of an async
+action the user just started, which they would otherwise not see finish. "Call
+connected." "Four actions written to the sim."
 
 **Alert**, inline, states a persistent condition, placed next to what it
 describes. "Four medications could not be resolved to a UK equivalent." It lives
