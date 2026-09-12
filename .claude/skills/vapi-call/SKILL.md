@@ -33,10 +33,11 @@ so one assistant covers Bengali, Hindi and English with no handoff.
 otherwise behave as though they speak only English, whatever the transcriber
 detects.
 
-`language-change-detected` is no longer a valid `serverMessages` or
-`clientMessages` value. Vapi rejects the whole assistant if it is present, so
-there is no language event to listen for. `src/components/call/CallPanel.tsx`
-reads the script off the transcript instead.
+Neither spelling of the language switch is accepted any more. `language-change-detected`
+is not a valid `serverMessages` value and `language-changed` is not a valid
+`clientMessages` value, and Vapi refuses to publish an assistant carrying either.
+There is no language event to listen for, so read the script off the transcript
+if the switch needs to show on screen.
 
 `serverUrl` is deprecated in favour of `server.url`. Vapi transforms it and warns.
 

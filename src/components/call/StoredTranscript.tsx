@@ -1,6 +1,13 @@
 import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
+import { Bubble, BubbleContent } from '@/components/ui/bubble'
+import {
+  Message,
+  MessageContent,
+  MessageGroup,
+  MessageHeader,
+} from '@/components/ui/message'
 import { parseTurns } from '@/lib/transcript'
 
 /**
@@ -71,16 +78,24 @@ export function StoredTranscript({ patientId, patientName }: StoredTranscriptPro
         ) : null}
       </div>
       {turns.length === 0 ? (
+        /** No line carried a speaker prefix, so show the transcript as it arrived. */
         <p className="text-sm whitespace-pre-wrap">{call.transcript}</p>
       ) : (
-        turns.map((turn, i) => (
-          <div key={i} className="flex flex-col gap-1">
-            <span className="text-xs text-muted-foreground">
-              {turn.speaker === 'assistant' ? 'Assistant' : patientName}
-            </span>
-            <p className="text-sm">{turn.text}</p>
-          </div>
-        ))
+        <MessageGroup className="gap-4">
+          {turns.map((turn, i) => {
+            const assistant = turn.speaker === 'assistant'
+            return (
+              <Message key={i} align={assistant ? 'start' : 'end'}>
+                <MessageContent>
+                  <MessageHeader>{assistant ? 'Assistant' : patientName}</MessageHeader>
+                  <Bubble variant={assistant ? 'muted' : 'default'}>
+                    <BubbleContent>{turn.text}</BubbleContent>
+                  </Bubble>
+                </MessageContent>
+              </Message>
+            )
+          })}
+        </MessageGroup>
       )}
     </div>
   )
