@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { CallPanel } from '@/components/call/CallPanel'
 import { PhoneCallForm } from '@/components/call/PhoneCallForm'
+import { StoredTranscript } from '@/components/call/StoredTranscript'
 
 /**
  * Placeholder shell for the voice path. The board route replaces it.
@@ -51,6 +52,7 @@ export default function App() {
               await register({ patientId: patient._id, vapiCallId })
             }}
           />
+          <StoredTranscript patientId={patient._id} />
         </>
       )}
     </div>

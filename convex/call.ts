@@ -40,6 +40,33 @@ export const openQuestions = query({
   },
 })
 
+/** The patient's most recent call, so the shell can show what was said. */
+export const latestCall = query({
+  args: { patientId: v.id('patients') },
+  returns: v.union(
+    v.null(),
+    v.object({
+      channel: v.union(v.literal('voice'), v.literal('chat')),
+      status: v.union(
+        v.literal('pending'),
+        v.literal('in-progress'),
+        v.literal('complete'),
+        v.literal('failed'),
+      ),
+      transcript: v.optional(v.string()),
+    }),
+  ),
+  handler: async (ctx, { patientId }) => {
+    const call = await ctx.db
+      .query('calls')
+      .withIndex('by_patient', (q) => q.eq('patientId', patientId))
+      .order('desc')
+      .first()
+    if (!call) return null
+    return { channel: call.channel, status: call.status, transcript: call.transcript }
+  },
+})
+
 export const create = internalMutation({
   args: {
     patientId: v.id('patients'),
