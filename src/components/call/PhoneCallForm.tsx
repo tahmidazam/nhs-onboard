@@ -3,12 +3,11 @@ import { useAction } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 
 /**
- * Rings a real phone through the Twilio number on the Vapi account.
- * The transcript arrives on the end-of-call-report webhook, not here.
+ * Rings the phone on DEMO_PHONE_NUMBER through the Twilio number on the Vapi
+ * account. The transcript arrives on the end-of-call-report webhook, not here.
  */
 
 interface PhoneCallFormProps {
@@ -18,21 +17,14 @@ interface PhoneCallFormProps {
 
 export function PhoneCallForm({ patientId, questionCount }: PhoneCallFormProps) {
   const place = useAction(api.call.place)
-  /** Prefilled from the environment so a demo does not start with typing. */
-  const [number, setNumber] = useState(
-    (import.meta.env.VITE_DEMO_PHONE_NUMBER as string | undefined) ?? '',
-  )
   const [status, setStatus] = useState<'idle' | 'placing' | 'ringing'>('idle')
   const [problem, setProblem] = useState<string | null>(null)
-
-  /** Vapi rejects anything that is not E.164. */
-  const valid = /^\+[1-9]\d{7,14}$/.test(number.trim())
 
   async function ring() {
     setProblem(null)
     setStatus('placing')
     try {
-      await place({ patientId, number: number.trim() })
+      await place({ patientId })
       setStatus('ringing')
     } catch (e) {
       setStatus('idle')
@@ -43,23 +35,15 @@ export function PhoneCallForm({ patientId, questionCount }: PhoneCallFormProps) 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <Input
-          value={number}
-          onChange={(e) => setNumber(e.target.value)}
-          placeholder="+447700900000"
-          aria-label="Phone number in international format"
-          className="max-w-56"
-        />
-        <Button onClick={() => void ring()} disabled={!valid || status === 'placing'}>
-          {status === 'placing' ? 'Placing the call' : 'Call this number'}
+        <Button onClick={() => void ring()} disabled={status === 'placing'}>
+          {status === 'placing' ? 'Placing the call' : 'Call the patient'}
         </Button>
+        <span className="text-sm text-muted-foreground">
+          {status === 'ringing'
+            ? `The phone should ring. The assistant has ${questionCount} questions to ask.`
+            : `Rings the number on DEMO_PHONE_NUMBER. ${questionCount} questions to ask.`}
+        </span>
       </div>
-
-      <p className="text-sm text-muted-foreground">
-        {status === 'ringing'
-          ? `The phone should ring. The assistant has ${questionCount} questions to ask.`
-          : 'International format, starting with a plus and the country code.'}
-      </p>
 
       {problem ? (
         <Alert variant="destructive">

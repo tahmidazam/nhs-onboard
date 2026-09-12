@@ -172,7 +172,12 @@ export const ingestClaims = internalMutation({
 })
 
 export const place = action({
-  args: { patientId: v.id('patients'), number: v.string(), language: v.optional(v.string()) },
+  args: {
+    patientId: v.id('patients'),
+    /** Falls back to DEMO_PHONE_NUMBER on the deployment. */
+    number: v.optional(v.string()),
+    language: v.optional(v.string()),
+  },
   returns: v.object({ callId: v.id('calls'), vapiCallId: v.optional(v.string()) }),
   handler: async (
     ctx,
@@ -185,6 +190,11 @@ export const place = action({
       throw new Error(
         'Set VAPI_PRIVATE_KEY, VAPI_ASSISTANT_ID and VAPI_PHONE_NUMBER_ID with `npx convex env set`.',
       )
+    }
+
+    const dial = number ?? process.env.DEMO_PHONE_NUMBER
+    if (!dial) {
+      throw new Error('No number to call. Set DEMO_PHONE_NUMBER with `npx convex env set`.')
     }
 
     const gaps = await ctx.runQuery(internal.call.openGaps, { patientId })
@@ -201,7 +211,7 @@ export const place = action({
       body: JSON.stringify({
         assistantId,
         phoneNumberId,
-        customer: { number },
+        customer: { number: dial },
         assistantOverrides: {
           /** The dashboard prompt reads {{goals}}. Keep the placeholder in step with it. */
           variableValues: {
