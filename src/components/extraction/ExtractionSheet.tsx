@@ -1,3 +1,8 @@
+import { useState } from 'react'
+import { useAction } from 'convex/react'
+import { RotateCcwIcon } from 'lucide-react'
+import { api } from '../../../convex/_generated/api'
+import type { Id } from '../../../convex/_generated/dataModel'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -6,6 +11,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { Spinner } from '@/components/ui/spinner'
+import { toast } from '@/components/ui/toast'
 import { formatAgent, formatDocumentKind } from '@/lib/format'
 import type { ExtractionFailure } from './types'
 
@@ -16,6 +23,7 @@ function formatDocumentSource(kind: string | undefined): string {
 }
 
 interface ExtractionSheetProps {
+  patientId: Id<'patients'>
   patientName: string
   claimCount: number
   failures: ExtractionFailure[]
@@ -25,12 +33,36 @@ interface ExtractionSheetProps {
 
 /** Detail view for one patient's extraction, opened from the board's claims column. */
 export function ExtractionSheet({
+  patientId,
   patientName,
   claimCount,
   failures,
   open,
   onOpenChange,
 }: ExtractionSheetProps) {
+  const reExtract = useAction(api.extract.reExtract)
+  const [running, setRunning] = useState(false)
+
+  async function handleReExtract() {
+    setRunning(true)
+    try {
+      const summary = await reExtract({ patientId })
+      toast.add({
+        type: 'success',
+        title: 'Extraction re-run',
+        description: `${summary.claims} claims, ${summary.failures} calls still failing.`,
+      })
+    } catch (err) {
+      toast.add({
+        type: 'error',
+        title: 'Re-extraction failed',
+        description: err instanceof Error ? err.message : String(err),
+      })
+    } finally {
+      setRunning(false)
+    }
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent>
@@ -73,9 +105,13 @@ export function ExtractionSheet({
             </div>
           )}
         </div>
-        <div className="mt-auto flex justify-end p-6">
+        <div className="mt-auto flex justify-end gap-2 p-6">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close
+          </Button>
+          <Button onClick={handleReExtract} disabled={running}>
+            {running ? <Spinner /> : <RotateCcwIcon />}
+            {running ? 'Reading the documents again' : 'Read the documents again'}
           </Button>
         </div>
       </SheetContent>

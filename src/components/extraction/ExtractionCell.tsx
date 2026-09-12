@@ -2,10 +2,12 @@ import { useState } from 'react'
 import { TriangleAlertIcon } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { Id } from '../../../convex/_generated/dataModel'
 import { ExtractionSheet } from './ExtractionSheet'
 import type { ExtractionProgress } from './types'
 
 interface ExtractionCellProps {
+  patientId: Id<'patients'>
   patientName: string
   progress: ExtractionProgress | undefined
 }
@@ -22,7 +24,7 @@ interface ExtractionCellProps {
  * is a legitimate record here. A patient with no claims and a failure is a bug,
  * and the warning is what separates the two on the row.
  */
-export function ExtractionCell({ patientName, progress }: ExtractionCellProps) {
+export function ExtractionCell({ patientId, patientName, progress }: ExtractionCellProps) {
   const [open, setOpen] = useState(false)
 
   if (!progress) return <Skeleton className="h-4 w-12" />
@@ -62,6 +64,7 @@ export function ExtractionCell({ patientName, progress }: ExtractionCellProps) {
         )}
       </div>
       <ExtractionSheet
+        patientId={patientId}
         patientName={patientName}
         claimCount={claimCount}
         failures={failures}

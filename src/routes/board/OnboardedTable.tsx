@@ -50,7 +50,11 @@ function useClaimsColumn(extractionByPatientId: Map<Id<'patients'>, ExtractionPr
         id: 'claims',
         header: 'Claims',
         cell: ({ row }) => (
-          <ExtractionCell patientName={row.original.name} progress={extractionByPatientId.get(row.original._id)} />
+          <ExtractionCell
+            patientId={row.original._id}
+            patientName={row.original.name}
+            progress={extractionByPatientId.get(row.original._id)}
+          />
         ),
       }),
     [extractionByPatientId],
