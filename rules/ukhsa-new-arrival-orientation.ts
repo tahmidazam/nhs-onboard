@@ -23,8 +23,6 @@ export const rule: Rule = {
    */
   kind: 'task',
   target: 'gp',
-  /** Lowest: a call has five questions in it and this rule asks none. */
-  priority: 3,
   /**
    * 'all' rather than the generated 135. The advice is on every guide, and a
    * patient from a country UKHSA has not written up is still new to the NHS.

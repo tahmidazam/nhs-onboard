@@ -25,7 +25,6 @@ export const rule: Rule = {
   id: 'ukhsa-country-hepb',
   kind: 'screening',
   target: 'referrals',
-  priority: 2,
   countries: HEPB_SCREENING_COUNTRIES,
   /**
    * Country is written by an operator or a call at onboarding rather than

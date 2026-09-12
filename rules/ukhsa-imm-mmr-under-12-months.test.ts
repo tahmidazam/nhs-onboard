@@ -167,6 +167,58 @@ describe('ukhsa-imm-mmr-under-12-months', () => {
     assert.ok(pre2020[0].kind === 'recommendation' && pre2020[0].title.includes('MMR'))
   })
 
+  /**
+   * Both birthDates below are 80 whole months before the frozen clock, so the
+   * age in months cannot tell the two cohorts apart and only the date can. See
+   * #30.
+   */
+  it('names MMR for a birthDate the day before 1 January 2020', () => {
+    const outcomes = rule.evaluate(
+      profile({
+        birthDate: '2019-12-31',
+        ageYears: 6,
+        ageMonths: 80,
+        immunisations: [dose({ ageAtDoseMonths: 9 })],
+      }),
+    )
+
+    assert.ok(outcomes[0].kind === 'recommendation' && outcomes[0].title.includes('MMR'))
+    assert.ok(outcomes[0].kind === 'recommendation' && !outcomes[0].title.includes('MMRV'))
+  })
+
+  it('names MMRV for a birthDate of 1 January 2020 itself', () => {
+    const outcomes = rule.evaluate(
+      profile({
+        birthDate: '2020-01-01',
+        ageYears: 6,
+        ageMonths: 80,
+        immunisations: [dose({ ageAtDoseMonths: 9 })],
+      }),
+    )
+
+    assert.ok(
+      outcomes[0].kind === 'recommendation' && outcomes[0].title.includes('MMRV'),
+      'the line is "born before 1 January 2020", so the first of January is not before it',
+    )
+  })
+
+  it('reads the birthDate rather than the age in months when the two disagree', () => {
+    // buildProfile derives both from the same date, so this profile cannot come
+    // out of the projection. It is here to pin which field the cohort rests on:
+    // an age in months is arithmetic we did, and the quoted line branches on a
+    // date of birth.
+    const outcomes = rule.evaluate(
+      profile({
+        birthDate: '2019-06-15',
+        ageYears: 4,
+        ageMonths: 55,
+        immunisations: [dose({ ageAtDoseMonths: 9 })],
+      }),
+    )
+
+    assert.ok(outcomes[0].kind === 'recommendation' && !outcomes[0].title.includes('MMRV'))
+  })
+
   it('defers the top-up to the first birthday for an infant still under one', () => {
     const outcomes = rule.evaluate(
       profile({ ageYears: 0, ageMonths: 9, immunisations: [dose({ ageAtDoseMonths: 6 })] }),

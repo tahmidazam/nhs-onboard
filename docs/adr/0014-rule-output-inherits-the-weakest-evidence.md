@@ -62,3 +62,12 @@ rule rather than by the evidence under it.
 
 Propagating `synthesised` needs the field on `recommendations` and `gaps`, not
 only on `documents`.
+
+The label is enforced at the write-back boundary, in `src/lib/writeBack.ts`.
+Write-back refuses any recommendation carrying `synthesised: true` whatever its
+bucket, and the review screen shows the refused row with the ground for the
+refusal rather than hiding it, as ADR 3 requires. So a card-derived plan keeps
+the bucket its evidence earns and still cannot reach the sim. The cost is that
+the bucket no longer tells a reader on its own whether a recommendation is
+writable. Anything acting on `document-evidenced` has to read the label beside
+it, and that is a second thing to get right rather than one.

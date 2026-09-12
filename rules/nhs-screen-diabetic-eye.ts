@@ -52,7 +52,6 @@ export const rule: Rule = {
   id: 'nhs-screen-diabetic-eye',
   kind: 'screening',
   target: 'referrals',
-  priority: 2,
   countries: 'all',
   reads: 'The active problem list, for diabetes, and age. Fires from 12 upwards.',
   citations: [

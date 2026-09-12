@@ -339,3 +339,35 @@ describe('rule output and the recovery metric', () => {
     }
   })
 })
+
+describe('the priority a rule declares', () => {
+  /**
+   * Priority is gap-only metadata: ADR 16's adjudicator reads it to sort the
+   * gaps a call asks and nothing reads it on a recommendation. So a rule
+   * declares one exactly when it can ask the patient something, and the spread
+   * is what decides which rules those are. Asserted against what `evaluate`
+   * does rather than against a second declaration beside it, because a
+   * declaration can disagree with the code. See #32.
+   */
+  const emitsGap = new Set(
+    SPREAD.flatMap((spread, index) => applyRules(profileFor(spread, index), pack))
+      .filter((outcome) => outcome.kind === 'gap')
+      .map((outcome) => outcome.ruleId),
+  )
+
+  it('is declared by every rule that asks a patient something', () => {
+    assert.deepEqual(
+      pack.filter((rule) => emitsGap.has(rule.id) && rule.priority === undefined).map((r) => r.id),
+      [],
+      'the adjudicator sorts gaps on priority, so a gap without one cannot be placed in a call',
+    )
+  })
+
+  it('is declared by no rule that asks nothing', () => {
+    assert.deepEqual(
+      pack.filter((rule) => rule.priority !== undefined && !emitsGap.has(rule.id)).map((r) => r.id),
+      [],
+      'nothing reads priority on a recommendation, so /rules would show a number that means nothing',
+    )
+  })
+})
