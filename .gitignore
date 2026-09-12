@@ -11,3 +11,4 @@ dist
 # Reference datasets. Pulled by `pnpm data:fetch`, seeded by `pnpm data:seed`.
 # The rest come from the team Google Drive. See README.
 data/
+data/seed/

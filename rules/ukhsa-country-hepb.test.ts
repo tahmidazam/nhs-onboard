@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test'
+import { describe, it } from 'vitest'
 import assert from 'node:assert/strict'
 import { rule } from './ukhsa-country-hepb'
 import { HEPB_GUIDE_ROWS, HEPB_SCREENING_COUNTRIES } from './country-lists.generated'

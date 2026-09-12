@@ -59,6 +59,7 @@ export const seedDemoPatient = mutation({
       simId: DEMO_SIM_ID,
       name: 'Rahim Uddin',
       birthDate: '1968-04-11',
+      country: 'BD',
       stage: 'awaiting-call',
       truth: {
         conditions: ['Type 2 diabetes mellitus', 'Hypertension'],

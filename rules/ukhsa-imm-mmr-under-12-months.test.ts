@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test'
+import { describe, it } from 'vitest'
 import assert from 'node:assert/strict'
 import { rule } from './ukhsa-imm-mmr-under-12-months'
 import type { ImmunisationFact, PatientProfile } from './types'

@@ -115,7 +115,7 @@ function RuleEntry({ rule }: { rule: Rule }) {
 
 export function Rules() {
   return (
-    <div className="flex max-w-3xl flex-col gap-8 p-8">
+    <div className="flex max-w-3xl flex-col gap-8">
       <header className="flex flex-col gap-4">
         <h1 className="text-lg">The rule pack</h1>
         <p className="text-sm text-muted-foreground">
