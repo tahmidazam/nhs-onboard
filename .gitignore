@@ -7,3 +7,4 @@ dist
 
 # Reference datasets. Pulled by `npm run data:fetch`, seeded by `npm run data:seed`.
 data/
+data/dmd/

@@ -121,6 +121,7 @@ export const insertDmd = internalMutation({
         form: v.optional(v.string()),
         route: v.optional(v.string()),
         bnfCode: v.optional(v.string()),
+        atcCode: v.optional(v.string()),
       }),
     ),
   },

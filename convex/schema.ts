@@ -146,6 +146,7 @@ export default defineSchema({
     form: v.optional(v.string()),
     route: v.optional(v.string()),
     bnfCode: v.optional(v.string()),
+    atcCode: v.optional(v.string()),
   }).index('by_key', ['key']).index('by_vtm', ['vtmId']),
 
   /** Cambridge and Peterborough formulary. Seeded by `npm run data:seed`. */

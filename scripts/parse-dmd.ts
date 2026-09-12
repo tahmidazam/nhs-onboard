@@ -22,9 +22,6 @@ interface Vmp {
   vpid: string
   name: string
   vtmId?: string
-  formCode?: string
-  routeCode?: string
-  bnfCode?: string
 }
 
 function findFile(prefix: string): string | undefined {
@@ -96,21 +93,35 @@ function parseVmps(): Vmp[] {
     const vpid = field(b, 'VPID')
     const name = field(b, 'NM')
     if (vpid && name) {
-      out.push({
-        vpid,
-        name,
-        vtmId: field(b, 'VTMID'),
-        formCode: field(b, 'DFORMF'),
-        bnfCode: field(b, 'BNF') ?? field(b, 'BNFCODE'),
-      })
+      out.push({ vpid, name, vtmId: field(b, 'VTMID') })
     }
   }
   console.log(`VMP  ${out.length} from ${path}`)
   return out
 }
 
+/** f_bnf1_*.xml from the dmdbonus release. Maps VPID to BNF and ATC. */
+function parseBnf(): Map<string, { bnf?: string; atc?: string }> {
+  const path = findFile('f_bnf1')
+  const map = new Map<string, { bnf?: string; atc?: string }>()
+  if (!path) {
+    console.log('missing f_bnf1_*.xml. Unzip week*-BNF.zip from the dmdbonus release into data/dmd/')
+    return map
+  }
+  const xml = readFileSync(path, 'utf8')
+  for (const b of blocks(xml, 'VMP')) {
+    const vpid = field(b, 'VPID')
+    if (!vpid) continue
+    const atc = field(b, 'ATC')
+    map.set(vpid, { bnf: field(b, 'BNF'), atc: atc === 'n/a' ? undefined : atc })
+  }
+  console.log(`BNF  ${map.size} from ${path}`)
+  return map
+}
+
 const vtms = parseVtms()
 const vmps = parseVmps()
+const bnf = parseBnf()
 
 if (!vtms.length) {
   console.log('nothing to write')
@@ -135,13 +146,15 @@ for (const v of vmps) {
 
 const rows = vtms.map((vtm) => {
   const vmp = pickVmp(byVtm.get(vtm.vtmId) ?? [])
+  const codes = vmp ? bnf.get(vmp.vpid) : undefined
   return {
     key: norm(vtm.vtmName),
     vtmId: vtm.vtmId,
     vtmName: vtm.vtmName,
     vmpId: vmp?.vpid,
     vmpName: vmp?.name,
-    bnfCode: vmp?.bnfCode,
+    bnfCode: codes?.bnf,
+    atcCode: codes?.atc,
   }
 })
 

@@ -92,7 +92,7 @@ async function seedDmd() {
   if (!existsSync(path)) return console.log('skip    dmd.json. Run: npx tsx scripts/parse-dmd.ts')
   const rows = JSON.parse(readFileSync(path, 'utf8')) as {
     key: string; vtmId: string; vtmName: string
-    vmpId?: string; vmpName?: string; bnfCode?: string
+    vmpId?: string; vmpName?: string; bnfCode?: string; atcCode?: string
   }[]
   await send(rows.filter((r) => r.key), (batch) => client.mutation(internal.brands.insertDmd, { rows: batch }), 'dm+d')
 }
