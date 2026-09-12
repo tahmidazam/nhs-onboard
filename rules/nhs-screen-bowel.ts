@@ -17,7 +17,6 @@ export const rule: Rule = {
   id: 'nhs-screen-bowel',
   kind: 'screening',
   target: 'referrals',
-  priority: 2,
   countries: 'all',
   reads: 'Age, from the frozen snapshot. Fires between 50 and 74 inclusive.',
   citations: [
