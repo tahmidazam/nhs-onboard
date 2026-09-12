@@ -29,6 +29,10 @@ Use these terms exactly. Do not drift to synonyms.
 | **MedicationMapping** | Output of the deterministic brand lookup. |
 | **Gap** | Something only the patient can answer. Also the voice agent's goal. |
 | **Recommendation** | A proposed action with its evidence chain and its destination in the sim. |
+| **Rule** | One hand-encoded piece of guidance: declarative metadata plus an `evaluate` function. |
+| **RulePack** | The ordered set of Rules the engine runs. |
+| **PatientProfile** | The normalised projection a Rule reads. Rules never read Claims directly. |
+| **RuleOutcome** | What a Rule emits: a Recommendation, a Gap, or nothing. |
 | **RecoveryMetric** | Ground-truth facts the pipeline recovered from the degraded documents. |
 
 ### Confidence buckets
@@ -57,6 +61,9 @@ Rationale lives in `docs/adr/`. Read the ADR before changing behaviour it covers
 | [10](docs/adr/0010-degrader-is-template-driven.md) | The degrader is template-driven. Code assembles documents, the model only translates. |
 | [11](docs/adr/0011-recovery-is-measured-against-a-frozen-snapshot.md) | Recovery is measured against a frozen snapshot with deterministic matching. |
 | [12](docs/adr/0012-patient-selection-is-arbitrary-and-visible.md) | Patient selection is random or searched, never curated. |
+| [13](docs/adr/0013-rules-are-typed-typescript-modules.md) | Rules are typed TypeScript modules. Supersedes ADR 5's YAML clause. |
+| [14](docs/adr/0014-rule-output-inherits-the-weakest-evidence.md) | A rule's output inherits the weakest evidence under it. |
+| [15](docs/adr/0015-country-guides-gate-and-cite.md) | Country guides gate a rule and cite it. They never ground it. |
 
 ## Data sources
 
@@ -89,3 +96,24 @@ status per indication. Key on subsection.
 EDQM covers dose forms and routes in 35 languages, none of them Bengali, Hindi or
 Urdu, and its API needs HMAC-SHA512 auth with an emailed credential. It never
 maps drug names.
+
+The sim carries no sex or gender. It is absent from patient items and from the
+FHIR projection at `/api/nhs/pds/Patient/{id}`. Cervical, breast and AAA
+screening are sex-gated, so they emit a Gap for the call rather than a
+Recommendation, and none of them is in the shipped pack. We do not synthesise
+sex: ADR 8 synthesises immunisations because the alternative was abandoning
+catch-up entirely, and here the alternative is a question on a call we are
+already making.
+
+The rule pack covers six programmes. Not covered: cervical, breast, AAA,
+newborn blood spot, newborn hearing, NIPE, antenatal and newborn sickle cell,
+antenatal infectious disease, and the remainder of the routine immunisation
+schedule beyond measles-containing dose validity. NIPE has no catch-up route at
+all, because it is scoped to babies born in England, so a family arriving with a
+two-week-old falls through a gap in the programme rather than a gap in our data.
+
+The sim's problem list carries `status`, either `active` or `resolved`, but the
+patient search item flattens both into one `conditions` array. Rules keying on a
+condition read the active set. A degraded document does not record resolution
+either, so a resolved condition can present as current. That is what a real
+migrating record does, and we do not correct for it.

@@ -4,7 +4,10 @@ Date: 2026-09-12
 
 ## Status
 
-Accepted
+Accepted. The storage clause is superseded by
+[ADR 13](0013-rules-are-typed-typescript-modules.md); rules are typed TypeScript
+modules, not YAML. The decision this ADR exists for, to cite by reference and
+never ingest guideline text, stands.
 
 ## Context
 
@@ -26,8 +29,10 @@ quoted line it rests on. We cite by reference and do not ingest guideline text.
 
 ## Consequences
 
-Roughly 45 rules cover the immunisation schedule and the adult screening
-programmes. We ship five for the demo.
+Six rules ship: immunisation catch-up from absent history, measles-containing
+dose validity, bowel screening, diabetic eye screening, country-gated hepatitis
+B screening, and new arrival orientation. `CONTEXT.md` names the programmes not
+covered. We do not claim a total the pack does not contain.
 
 Two encoding details: MMRV replaced MMR from 1 January 2026 and an 18-month
 appointment was added; cervical screening interval depends on HPV result, so
