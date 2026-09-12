@@ -52,8 +52,13 @@ the `.cloud` one, so it is not the value to paste. `.env` and `.env.local` both
 carry `VITE_CONVEX_SITE_URL`, which is.
 
 `end-of-call-report` must be among the assistant's server messages. It is on by
-default. Add `language-change-detected` too, which is not, and which drives the
-detected-language line in the browser call.
+default.
+
+Vapi validates that list and rejects anything not on it. `language-change-detected`
+used to be valid and is not any more, so an assistant carrying it will not save.
+Nothing in this repo needs it: the browser call reads the script off the
+transcript instead. `serverUrl` is also deprecated in favour of `server.url`,
+which Vapi transforms for you.
 
 Once that is right, hanging up puts the transcript under **Saved transcript** in
 the sheet within a second or two, with no refresh. The query is reactive.
@@ -97,7 +102,7 @@ Defined in the dashboard, not in code, so it can be retuned without a deploy.
 | Setting | Value |
 |---|---|
 | Server URL | `https://<deployment>.convex.site/vapi` |
-| Server messages | `end-of-call-report`, `language-change-detected` |
+| Server messages | `end-of-call-report` |
 | Transcriber | multilingual, so the language can change mid-call |
 | customerJoinTimeoutSeconds | 45, since 15 is short on conference wifi |
 

@@ -21,7 +21,7 @@ it by id.
   "transcriber": { "provider": "deepgram", "model": "nova-3", "language": "multi" },
   "voice": { "provider": "azure", "voiceId": "multilingual-auto" },
   "artifactPlan": { "recordingEnabled": true, "transcriptPlan": { "enabled": true } },
-  "serverMessages": ["end-of-call-report", "tool-calls", "language-change-detected"],
+  "serverMessages": ["end-of-call-report", "tool-calls"],
   "customerJoinTimeoutSeconds": 45
 }
 ```
@@ -33,8 +33,12 @@ so one assistant covers Bengali, Hindi and English with no handoff.
 otherwise behave as though they speak only English, whatever the transcriber
 detects.
 
-`language-change-detected` is absent from the default `serverMessages`. Add it to
-show the language switch on screen.
+`language-change-detected` is no longer a valid `serverMessages` or
+`clientMessages` value. Vapi rejects the whole assistant if it is present, so
+there is no language event to listen for. `src/components/call/CallPanel.tsx`
+reads the script off the transcript instead.
+
+`serverUrl` is deprecated in favour of `server.url`. Vapi transforms it and warns.
 
 ## Running a call
 

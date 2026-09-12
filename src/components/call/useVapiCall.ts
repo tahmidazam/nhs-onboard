@@ -45,7 +45,6 @@ export function useVapiCall({ onStarted, onEnded }: UseVapiCallOptions = {}) {
   const vapiRef = useRef<VapiInstance | null>(null)
   const [status, setStatus] = useState<CallStatus>('idle')
   const [transcript, setTranscript] = useState<Turn[]>([])
-  const [language, setLanguage] = useState<string | null>(null)
   const [problem, setProblem] = useState<string | null>(null)
 
   /**
@@ -110,8 +109,6 @@ export function useVapiCall({ onStarted, onEnded }: UseVapiCallOptions = {}) {
           { speaker: message.role === 'assistant' ? 'assistant' : 'patient', text: message.transcript },
         ])
       }
-      /** Absent from the default serverMessages, so it only arrives once enabled. */
-      if (message?.type === 'language-change-detected') setLanguage(message.language ?? null)
     })
 
     vapi.on('error', (e: any) => {
@@ -164,7 +161,6 @@ export function useVapiCall({ onStarted, onEnded }: UseVapiCallOptions = {}) {
       callIdRef.current = null
       endedRef.current = false
       registeredRef.current = null
-      setLanguage(null)
       setProblem(null)
       setStatus('connecting')
 
@@ -202,5 +198,5 @@ export function useVapiCall({ onStarted, onEnded }: UseVapiCallOptions = {}) {
 
   const stop = useCallback(() => vapiRef.current?.stop(), [])
 
-  return { status, transcript, language, problem, start, stop }
+  return { status, transcript, problem, start, stop }
 }

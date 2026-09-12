@@ -37,15 +37,24 @@ const STATUS_COPY = {
   failed: 'Call failed.',
 } as const
 
-const LANGUAGE_NAMES = new Intl.DisplayNames(['en'], { type: 'language' })
+/**
+ * Vapi has no language-change event, so the script the patient is speaking in
+ * is read off the transcript instead. A script is not a language: Devanagari
+ * carries Hindi, Marathi and Nepali alike, so the label names the script.
+ */
+const SCRIPTS: [RegExp, string][] = [
+  [/[ঀ-৿]/, 'Bengali'],
+  [/[ऀ-ॿ]/, 'Devanagari'],
+  [/[؀-ۿ]/, 'Arabic'],
+  [/[Ѐ-ӿ]/, 'Cyrillic'],
+]
 
-/** Deepgram reports BCP-47, which a clinician should never have to read. */
-function languageName(tag: string): string {
-  try {
-    return LANGUAGE_NAMES.of(tag) ?? tag
-  } catch {
-    return tag
-  }
+function scriptOf(turns: { speaker: string; text: string }[]): string | null {
+  const said = turns
+    .filter((t) => t.speaker !== 'assistant')
+    .map((t) => t.text)
+    .join(' ')
+  return SCRIPTS.find(([pattern]) => pattern.test(said))?.[1] ?? null
 }
 
 export function CallPanel({
@@ -56,11 +65,12 @@ export function CallPanel({
   onCallStarted,
   onCallEnded,
 }: CallPanelProps) {
-  const { status, transcript, language, problem, start, stop } = useVapiCall({
+  const { status, transcript, problem, start, stop } = useVapiCall({
     onStarted: onCallStarted,
     onEnded: onCallEnded,
   })
   const live = status === 'connecting' || status === 'in-progress'
+  const script = scriptOf(transcript)
 
   return (
     <div className="flex flex-col gap-4">
@@ -73,9 +83,9 @@ export function CallPanel({
           <Button onClick={() => start({ goals, patientName, patientAge, patientDob })}>Call {patientName}</Button>
         )}
         <span className="text-sm text-muted-foreground">{STATUS_COPY[status]}</span>
-        {language ? (
+        {script ? (
           <span className="text-sm text-muted-foreground">
-            {patientName} is speaking {languageName(language)}.
+            {patientName} is answering in {script} script.
           </span>
         ) : null}
       </div>

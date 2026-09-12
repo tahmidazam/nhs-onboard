@@ -35,7 +35,9 @@ system prompt must list the languages explicitly or the assistant does not use
 them.
 
 `language-change-detected` is not in the default `serverMessages` and must be
-added.
+added. Vapi has since removed the value: it is not accepted in `serverMessages`
+or `clientMessages`, and an assistant carrying it fails validation. The browser
+call reads the script off the transcript instead.
 
 `customerJoinTimeoutSeconds` defaults to 15 seconds and applies to web calls
 only. Set it to 30 to 45 for conference wifi.
