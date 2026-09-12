@@ -30,7 +30,8 @@
     "data:seed": "tsx scripts/seed.ts",
     "data:export-idd": "bash scripts/export-idd.sh",
     "data:dmd": "tsx scripts/parse-dmd.ts",
-    "deploy:convex": "convex deploy"
+    "deploy:convex": "convex deploy",
+    "data:countries": "tsx scripts/parse-country-guides.ts"
   },
   "packageManager": "pnpm@11.22.0"
 }

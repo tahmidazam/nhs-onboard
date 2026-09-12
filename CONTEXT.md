@@ -66,6 +66,8 @@ All keyless, all under `data/`. `pnpm data:fetch` pulls the large ones.
 | `formulary.json` | 3,214 Cambridge and Peterborough entries with RAG status | scraped once at build time |
 | `bnf.csv` | 54,437 NHSBSA BNF rows | OGL v3.0 |
 | `sim.json` | NHS simulator OpenAPI spec | |
+| `country-guides.json` | 6,992 UKHSA migrant health recommendations across 135 countries, 2,404 with citations | OGL v3.0 |
+| `dmd.json` | 3,248 UK ingredients with prescribable product, BNF and ATC codes | OGL |
 
 `src/lib/sources.ts` registers brand datasets per country.
 

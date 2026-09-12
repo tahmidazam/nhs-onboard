@@ -132,6 +132,26 @@ export const insertDmd = internalMutation({
   },
 })
 
+export const insertCountryGuides = internalMutation({
+  args: {
+    rows: v.array(
+      v.object({
+        countrySlug: v.string(),
+        country: v.string(),
+        section: v.string(),
+        text: v.string(),
+        citations: v.array(v.object({ url: v.string(), label: v.string() })),
+        emphasis: v.optional(v.boolean()),
+      }),
+    ),
+  },
+  returns: v.number(),
+  handler: async (ctx, { rows }) => {
+    for (const row of rows) await ctx.db.insert('countryGuides', row)
+    return rows.length
+  },
+})
+
 export const counts = query({
   args: {},
   returns: v.object({ brands: v.number(), formulary: v.number() }),

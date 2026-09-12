@@ -124,7 +124,7 @@ export default defineSchema({
     status: v.union(v.literal('proposed'), v.literal('approved'), v.literal('dismissed')),
   }).index('by_patient', ['patientId']),
 
-  /** Foreign brand to generic. Seeded by `npm run data:seed`. */
+  /** Foreign brand to generic. Seeded by `pnpm data:seed`. */
   brands: defineTable({
     /** Lowercase, non-alphanumerics stripped. */
     key: v.string(),
@@ -151,7 +151,17 @@ export default defineSchema({
     atcCode: v.optional(v.string()),
   }).index('by_key', ['key']).index('by_vtm', ['vtmId']),
 
-  /** Cambridge and Peterborough formulary. Seeded by `npm run data:seed`. */
+  /** UKHSA migrant health guidance, 135 countries. Seeded by `pnpm data:seed`. */
+  countryGuides: defineTable({
+    countrySlug: v.string(),
+    country: v.string(),
+    section: v.string(),
+    text: v.string(),
+    citations: v.array(v.object({ url: v.string(), label: v.string() })),
+    emphasis: v.optional(v.boolean()),
+  }).index('by_country', ['countrySlug']),
+
+  /** Cambridge and Peterborough formulary. Seeded by `pnpm data:seed`. */
   formulary: defineTable({
     key: v.string(),
     drug: v.string(),

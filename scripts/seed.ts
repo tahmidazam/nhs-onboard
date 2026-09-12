@@ -97,6 +97,28 @@ async function seedDmd() {
   await send(rows.filter((r) => r.key), (batch) => client.mutation(internal.brands.insertDmd, { rows: batch }), 'dm+d')
 }
 
+/** UKHSA migrant health guidance. Produced by scripts/parse-country-guides.ts. */
+async function seedCountryGuides() {
+  const path = 'data/country-guides.json'
+  if (!existsSync(path)) return console.log('skip    country-guides.json. Run: pnpm data:countries')
+  const rows = JSON.parse(readFileSync(path, 'utf8')) as {
+    countrySlug: string; country: string; section: string; text: string
+    citations: { url: string; label: string }[]; emphasis?: boolean
+  }[]
+  await send(rows, (batch) => client.mutation(internal.brands.insertCountryGuides, { rows: batch }), 'Country guides')
+}
+
+/** UKHSA migrant health guidance. Produced by scripts/parse-country-guides.ts. */
+async function seedCountryGuides() {
+  const path = 'data/country-guides.json'
+  if (!existsSync(path)) return console.log('skip    country-guides.json. Run: pnpm data:countries')
+  const rows = JSON.parse(readFileSync(path, 'utf8')) as {
+    countrySlug: string; country: string; section: string; text: string
+    citations: { url: string; label: string }[]; emphasis?: boolean
+  }[]
+  await send(rows, (batch) => client.mutation(internal.brands.insertCountryGuides, { rows: batch }), 'Country guides')
+}
+
 async function seedFormulary() {
   const path = 'data/formulary.json'
   if (!existsSync(path)) return console.log('skip    formulary.json')
@@ -113,5 +135,7 @@ await seedBangladesh()
 await seedIndia()
 await seedInternational()
 await seedDmd()
+await seedCountryGuides()
+await seedCountryGuides()
 await seedFormulary()
 console.log(await client.query(api.brands.counts, {}))
