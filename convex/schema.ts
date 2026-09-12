@@ -175,7 +175,14 @@ export default defineSchema({
     generic: v.string(),
     country: v.string(),
     via: v.string(),
-  }).index('by_key', ['key']),
+    /**
+     * Normalised first word of `generic`, backfilled after seeding. Lets the
+     * degrader run the mapping backwards: country plus generic to a brand.
+     */
+    genericKey: v.optional(v.string()),
+  })
+    .index('by_key', ['key'])
+    .index('by_country_and_genericKey', ['country', 'genericKey']),
 
   /**
    * dm+d virtual products. `vtm` is the UK ingredient, `vmp` the prescribable
