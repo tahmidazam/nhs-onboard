@@ -4,6 +4,7 @@ import { rule as nhsScreenBowel } from './nhs-screen-bowel'
 import { rule as nhsScreenDiabeticEye } from './nhs-screen-diabetic-eye'
 import { rule as ukhsaCountryHepb } from './ukhsa-country-hepb'
 import { rule as ukhsaNewArrivalOrientation } from './ukhsa-new-arrival-orientation'
+import { rule as nhsContinueMedication } from './nhs-continue-medication'
 import type { RulePack } from './types'
 
 /**
@@ -17,4 +18,5 @@ export const pack: RulePack = [
   nhsScreenDiabeticEye,
   ukhsaCountryHepb,
   ukhsaNewArrivalOrientation,
+  nhsContinueMedication,
 ]
