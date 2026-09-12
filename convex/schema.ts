@@ -128,6 +128,46 @@ export default defineSchema({
     ),
   }).index('by_patient', ['patientId']),
 
+  /**
+   * One extraction call, recorded: what was sent, what came back, what it cost.
+   *
+   * ADR 6 left this to the OpenAI dashboard's traces. The dashboard is a second
+   * place to look, behind a second login, keyed by nothing this app knows, and
+   * it cannot answer the question actually asked of it during a demo: this
+   * claim, from that document, came from which call, and what did the model
+   * literally say? Sixteen rows per patient is a cost worth paying for that.
+   * See ADR 19.
+   *
+   * Cleared at the start of every run by `begin`, alongside
+   * `patients.extractionFailures`, so a transcript always belongs to the run
+   * that the claims on screen came from.
+   */
+  agentRuns: defineTable({
+    patientId: v.id('patients'),
+    documentId: v.id('documents'),
+    /** The agent's trace name, matching `patients.extractionFailures.agent`. */
+    agent: v.string(),
+    /** Resolved at call time, never inferred later. See convex/extract.ts. */
+    model: v.string(),
+    /** 1 where the first attempt returned, 2 where the retry did or both failed. */
+    attempts: v.number(),
+    durationMs: v.number(),
+    /** The instructions, as sent ahead of the document. */
+    instructions: v.string(),
+    /** The document text, as the agent received it. Clipped past 24k characters. */
+    input: v.string(),
+    /** The structured output, JSON encoded. Absent where both attempts failed. */
+    output: v.optional(v.string()),
+    /** Items the output held, before anchoring dropped any. */
+    items: v.optional(v.number()),
+    /** The OpenAI response id, which is what ties this row to a dashboard trace. */
+    responseId: v.optional(v.string()),
+    inputTokens: v.optional(v.number()),
+    outputTokens: v.optional(v.number()),
+    /** The second failure's message. Absent on success. */
+    error: v.optional(v.string()),
+  }).index('by_patient', ['patientId']),
+
   /** `question` is also the voice agent's goal. */
   gaps: defineTable({
     patientId: v.id('patients'),

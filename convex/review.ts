@@ -1,45 +1,12 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { mutation, query } from './_generated/server'
-import { sourceRef } from './schema'
+import schema from './schema'
 
 /** Queries and mutations for the review screen. Approval schedules the write-back action. */
 
-const confidence = v.union(
-  v.literal('document-evidenced'),
-  v.literal('patient-reported'),
-  v.literal('uncertain-mapping'),
-)
-
-const citation = v.object({ url: v.string(), quote: v.string() })
-
-const recommendationDoc = v.object({
-  _id: v.id('recommendations'),
-  _creationTime: v.number(),
-  patientId: v.id('patients'),
-  kind: v.union(
-    v.literal('prescription'),
-    v.literal('referral'),
-    v.literal('screening'),
-    v.literal('immunisation'),
-    v.literal('test'),
-    v.literal('task'),
-    v.literal('problem'),
-    v.literal('allergy'),
-  ),
-  title: v.string(),
-  rationale: v.string(),
-  confidence,
-  evidence: v.array(sourceRef),
-  citation: v.optional(citation),
-  extraCitations: v.optional(v.array(citation)),
-  target: v.union(v.literal('pharmacy'), v.literal('referrals'), v.literal('diagnostics'), v.literal('gp')),
-  simResourceId: v.optional(v.string()),
-  status: v.union(v.literal('proposed'), v.literal('approved'), v.literal('dismissed')),
-  ruleId: v.optional(v.string()),
-  outputKey: v.optional(v.string()),
-  synthesised: v.optional(v.boolean()),
-})
+/** Derived from the schema, so a new recommendation kind cannot break this query. */
+const recommendationDoc = schema.doc('recommendations')
 
 /** Patient header plus every recommendation the rule pack produced, for the review screen. */
 export const forPatient = query({

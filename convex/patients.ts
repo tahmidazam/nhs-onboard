@@ -5,18 +5,7 @@ import type { Doc, Id } from './_generated/dataModel'
 import { viewPatient } from './lib/simClient'
 import { normalisePatient } from './lib/normalisePatient'
 import { sourceForCountry } from '../src/lib/sources'
-
-const stage = v.union(
-  v.literal('not-onboarded'),
-  v.literal('degrading'),
-  v.literal('documents-ready'),
-  v.literal('extracting'),
-  v.literal('mapping'),
-  v.literal('applying-rules'),
-  v.literal('awaiting-call'),
-  v.literal('ready-for-review'),
-  v.literal('actioned'),
-)
+import schema from './schema'
 
 const truth = v.object({
   conditions: v.array(v.string()),
@@ -25,17 +14,11 @@ const truth = v.object({
   immunisations: v.array(v.string()),
 })
 
-const patientDoc = v.object({
-  _id: v.id('patients'),
-  _creationTime: v.number(),
-  simId: v.string(),
-  name: v.string(),
-  birthDate: v.string(),
-  country: v.string(),
-  stage,
-  truth,
-  recovery: v.optional(v.object({ total: v.number(), recovered: v.number() })),
-})
+/**
+ * Derived from the schema rather than restated, so a column added to
+ * `patients` cannot leave this query rejecting its own rows.
+ */
+const patientDoc = schema.doc('patients')
 
 /** Drives the board. Reactive: a client subscribed to this sees stage changes without a refresh. */
 export const list = query({

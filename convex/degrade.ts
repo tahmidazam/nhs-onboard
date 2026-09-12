@@ -9,6 +9,7 @@ import { DEFAULT_SEVERITY, scaleLoss } from './lib/degradeConstants'
 import { synthesiseVaccinationCard } from './lib/degradeVaccination'
 import { sourceForCountry } from '../src/lib/sources'
 import type { PatientRecord } from '../src/types'
+import schema from './schema'
 
 /**
  * Turns a patient's frozen snapshot into PresentedDocuments and persists them.
@@ -24,16 +25,8 @@ const documentKind = v.union(
   v.literal('clinic-letter'),
 )
 
-const documentDoc = v.object({
-  _id: v.id('documents'),
-  _creationTime: v.number(),
-  patientId: v.id('patients'),
-  kind: documentKind,
-  language: v.string(),
-  country: v.string(),
-  text: v.string(),
-  synthesised: v.optional(v.boolean()),
-})
+/** Derived from the schema, so a new document column cannot break this query. */
+const documentDoc = schema.doc('documents')
 
 /** A patient's documents, for the patient page. Reactive: updates as they are generated. */
 export const list = query({
