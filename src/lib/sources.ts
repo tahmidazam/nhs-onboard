@@ -1,20 +1,13 @@
 /**
  * Brand-name datasets, one per country of origin.
- *
- * This is the ONLY language-specific layer in the pipeline. Transliteration and
- * extraction are model-driven and language-agnostic; the UK side (BNF, formulary)
- * doesn't care what language the input was. So "does this only support Bengali?"
- * is answered by adding a row here.
- *
- * Lookup order is: country-specific dataset → IDD (44 countries) → RxNav → give up
- * and mark `unresolved`. Giving up is a correct outcome, not a failure.
+ * Lookup order: country dataset, then IDD, then RxNav, then `unresolved`.
  */
 
 export interface BrandSource {
   /** ISO 3166-1 alpha-2. */
   country: string
   label: string
-  /** Primary language(s), BCP-47 — used to pick the transliteration prompt. */
+  /** BCP-47. Selects the transliteration prompt. */
   languages: string[]
   /** File under data/. */
   file: string
@@ -23,7 +16,7 @@ export interface BrandSource {
   /** Column holding the generic / composition. */
   genericColumn: string
   via: 'bd-medex' | 'indian-medicines' | 'idd'
-  /** Approximate row count, for the UI. */
+  /** Row count, for the UI. */
   rows: number
 }
 
@@ -50,21 +43,19 @@ export const BRAND_SOURCES: BrandSource[] = [
   },
 ]
 
-/**
- * Fallback covering 44 countries — Ukraine, Russia, Poland, Nigeria, the
- * Philippines and more. Verified cases: No-Spa → drotaverine, Analgin →
- * metamizole, Lonart → artemether/lumefantrine.
- */
+/** Covers 44 countries including Ukraine, Russia, Poland, Nigeria, Philippines. */
 export const INTERNATIONAL_FALLBACK = {
   file: 'idd.sqlite',
-  table: 'd',
-  /** Normalised lookup key: lowercase, non-alphanumerics stripped. */
-  keyColumn: 'k',
-  genericColumn: 'ing',
+  exportedTo: 'idd.csv',
   via: 'idd' as const,
-  rows: 425_528,
+  rows: 424_357,
+  generics: 11_734,
   countries: 44,
 }
+
+/** Total brands resolvable across every source. Shown in the UI. */
+export const TOTAL_BRANDS =
+  BRAND_SOURCES.reduce((n, s) => n + s.rows, 0) + INTERNATIONAL_FALLBACK.rows
 
 export function sourceForCountry(country: string): BrandSource | undefined {
   return BRAND_SOURCES.find((s) => s.country === country.toUpperCase())

@@ -3,9 +3,7 @@ dist
 .env
 .env.local
 .convex
-
-# Large datasets — fetched by `npm run data:fetch`
-data/idd.sqlite
-data/indian_medicines.csv
-data/bnf.csv
 .DS_Store
+
+# Reference datasets. Pulled by `npm run data:fetch`, seeded by `npm run data:seed`.
+data/

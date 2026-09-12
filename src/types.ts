@@ -1,36 +1,27 @@
 /**
- * THE CONTRACT.
- *
- * Both workstreams build against this file. Dev A produces PresentedDocument[];
- * Dev B consumes them and produces Recommendation[].
- *
- * Do not edit without telling the other developer out loud. Adding a field is
- * cheap; renaming one costs both of you a rebase you do not have time for.
+ * Shared contract between both workstreams.
+ * Dev A produces PresentedDocument[]. Dev B produces Recommendation[].
+ * Tell the other developer before editing.
  */
 
-/** How much we trust a claim. Drives routing in the review UI and write-back. */
+/** Routes a claim in the review UI and controls whether it can be written back. */
 export type Confidence =
-  /** Backed by a source document. Becomes a draft prescription / referral. */
+  /** Backed by a source document. Can become a draft prescription or referral. */
   | 'document-evidenced'
-  /** Asserted by the patient on a call or in chat. Becomes a question to confirm. */
+  /** Asserted by the patient. Becomes a question for the clinician, never a prescription. */
   | 'patient-reported'
-  /** We found something but could not resolve it safely. Shown verbatim, never actioned. */
+  /** Found but not safely resolvable. Shown verbatim, never actioned. */
   | 'uncertain-mapping'
 
-/** Where a claim came from. Every claim has one; this is what "evidenced" means. */
 export interface SourceRef {
   kind: 'document' | 'transcript' | 'sim-record'
-  /** PresentedDocument.id, or the Vapi call id, or the sim resource id. */
+  /** PresentedDocument.id, Vapi call id, or sim resource id. */
   id: string
-  /** Verbatim text that motivated the claim. Rendered in the UI, highlighted in the source. */
+  /** Verbatim text the claim rests on. Highlighted in the source view. */
   quote: string
 }
 
-// ---------------------------------------------------------------------------
-// Dev A's output
-// ---------------------------------------------------------------------------
-
-/** A patient as the sim holds them. Ground truth — also our evaluation answer key. */
+/** A patient as the sim holds them. Also the answer key for RecoveryMetric. */
 export interface PatientRecord {
   id: string
   name: string
@@ -39,70 +30,53 @@ export interface PatientRecord {
   medications: string[]
   allergies: string[]
   immunisations: string[]
-  /** Everything else the sim returned, kept raw so nothing is lost. */
   raw: unknown
 }
 
-/**
- * A record as the patient actually presents it: partial, foreign-language,
- * unstructured. Produced by the degrader from a PatientRecord.
- */
+/** A PatientRecord after the degrader drops, translates and unstructures it. */
 export interface PresentedDocument {
   id: string
   patientId: string
   kind: 'discharge-summary' | 'vaccination-card' | 'prescription-list' | 'clinic-letter'
   /** BCP-47, e.g. 'bn', 'hi', 'uk'. */
   language: string
-  /** ISO 3166-1 alpha-2 — selects the brand dataset in the source registry. */
+  /** ISO 3166-1 alpha-2. Selects the brand dataset in sources.ts. */
   country: string
-  /** The document as the patient hands it over. Rendered with Typeset. */
   text: string
 }
 
-// ---------------------------------------------------------------------------
-// Dev B's output
-// ---------------------------------------------------------------------------
-
 export type ClaimKind = 'medication' | 'condition' | 'immunisation' | 'family-history' | 'allergy'
 
-/** One extracted fact. Always carries where it came from. */
 export interface Claim {
   id: string
   patientId: string
   kind: ClaimKind
-  /** As written in the source, in the source language. Never overwritten. */
+  /** As written in the source language. Never overwritten. */
   verbatim: string
-  /** Resolved English/UK term, if we got there. */
+  /** Resolved UK term, when the lookup succeeds. */
   resolved?: string
   confidence: Confidence
   source: SourceRef
-  /** Only on medication claims. */
   mapping?: MedicationMapping
 }
 
-/** Result of the deterministic foreign-brand → UK lookup. No model involved. */
+/** Output of the deterministic brand lookup. No model runs in this path. */
 export interface MedicationMapping {
-  /** e.g. 'Napa' */
   brand: string
-  /** e.g. 'Paracetamol' */
   generic?: string
-  /** Matched entry in the Cambridge & Peterborough formulary. */
   ukFormularyName?: string
-  /** Formulary traffic-light: 'Green' | 'Amber SCG' | 'Red Hospital' | 'Black' | 'OTC' | ... */
+  /** Cambridge and Peterborough traffic light: 'Green', 'Red Hospital', 'OTC'. */
   rag?: string
-  /** Which dataset resolved it — shown in the UI so the chain is auditable. */
+  /** Which dataset resolved it. */
   via: 'bd-medex' | 'indian-medicines' | 'idd' | 'rxnav' | 'unresolved'
-  /** True when the lookup returned nothing. Routes to 'uncertain-mapping'. */
   unresolved: boolean
 }
 
-/** Something the record cannot tell us, that a call or chat could resolve. */
 export interface Gap {
   id: string
   patientId: string
-  /** Human-readable, and doubles as the voice agent's goal. */
+  /** Also used as the voice agent's goal for the call. */
   question: string
-  /** Rule that raised it, for the evidence chain. */
   ruleId: string
   status: 'open' | 'answered'
   answer?: string
@@ -110,7 +84,7 @@ export interface Gap {
 
 export type RecommendationKind = 'prescription' | 'referral' | 'screening' | 'immunisation' | 'test'
 
-/** Where this lands in the sim when a clinician approves it. */
+/** Sim site that owns the resource once written back. */
 export type SimTarget = 'pharmacy' | 'referrals' | 'diagnostics' | 'gp'
 
 export interface Recommendation {
@@ -118,22 +92,15 @@ export interface Recommendation {
   patientId: string
   kind: RecommendationKind
   title: string
-  /** Shown to the clinician, and written into the sim's `indication` field. */
+  /** Shown to the clinician and written to the sim's `indication` field. */
   rationale: string
   confidence: Confidence
-  /** Every claim and rule that motivated this. The evidence chain. */
   evidence: SourceRef[]
-  /** Guideline citation — URL plus the quoted line it rests on. */
   citation?: { url: string; quote: string }
   target: SimTarget
-  /** Populated once written back; the sim resource id. */
   simResourceId?: string
   status: 'proposed' | 'approved' | 'dismissed'
 }
-
-// ---------------------------------------------------------------------------
-// Pipeline status — drives the board
-// ---------------------------------------------------------------------------
 
 export type PipelineStage =
   | 'not-onboarded'
@@ -146,10 +113,8 @@ export type PipelineStage =
   | 'ready-for-review'
   | 'actioned'
 
-/** How much of the ground-truth record the pipeline recovered. Shown on the board. */
+/** Ground-truth facts recovered from the degraded documents. */
 export interface RecoveryMetric {
-  /** Facts in the original sim record. */
   total: number
-  /** Facts the pipeline recovered from the degraded documents. */
   recovered: number
 }

@@ -1,12 +1,7 @@
 import { defineSchema, defineTable } from 'convex/server'
 import { v } from 'convex/values'
 
-/**
- * THE CONTRACT (server half). Mirrors src/types.ts.
- *
- * Dev A owns this file. Dev B: say something out loud before editing it.
- * Adding a field is cheap; renaming one costs both of you a rebase.
- */
+/** Server half of the shared contract. Mirrors src/types.ts. Owned by Dev A. */
 
 const confidence = v.union(
   v.literal('document-evidenced'),
@@ -21,7 +16,7 @@ const sourceRef = v.object({
 })
 
 export default defineSchema({
-  /** One row per patient pulled from the sim. Drives the board. */
+  /** Drives the board. */
   patients: defineTable({
     simId: v.string(),
     name: v.string(),
@@ -37,18 +32,17 @@ export default defineSchema({
       v.literal('ready-for-review'),
       v.literal('actioned'),
     ),
-    /** Ground truth from the sim — the evaluation answer key. */
+    /** Answer key for `recovery`. */
     truth: v.object({
       conditions: v.array(v.string()),
       medications: v.array(v.string()),
       allergies: v.array(v.string()),
       immunisations: v.array(v.string()),
     }),
-    /** How much of `truth` the pipeline recovered. Shown on the board. */
     recovery: v.optional(v.object({ total: v.number(), recovered: v.number() })),
   }).index('by_simId', ['simId']),
 
-  /** The record as the patient presents it. Dev A produces these. */
+  /** Output of the degrader. */
   documents: defineTable({
     patientId: v.id('patients'),
     kind: v.union(
@@ -62,7 +56,7 @@ export default defineSchema({
     text: v.string(),
   }).index('by_patient', ['patientId']),
 
-  /** One extracted fact, always carrying its source. Dev B produces these. */
+  /** One extracted fact with its source. */
   claims: defineTable({
     patientId: v.id('patients'),
     kind: v.union(
@@ -94,7 +88,7 @@ export default defineSchema({
     ),
   }).index('by_patient', ['patientId']),
 
-  /** Something only the patient can tell us. Doubles as the voice agent's goal. */
+  /** `question` is also the voice agent's goal. */
   gaps: defineTable({
     patientId: v.id('patients'),
     question: v.string(),
@@ -103,7 +97,7 @@ export default defineSchema({
     answer: v.optional(v.string()),
   }).index('by_patient', ['patientId']),
 
-  /** A proposed action with its evidence chain and its destination in the sim. */
+  /** `target` is the sim site that owns the resource after write-back. */
   recommendations: defineTable({
     patientId: v.id('patients'),
     kind: v.union(
@@ -128,7 +122,25 @@ export default defineSchema({
     status: v.union(v.literal('proposed'), v.literal('approved'), v.literal('dismissed')),
   }).index('by_patient', ['patientId']),
 
-  /** Voice/chat transcripts. Indexed so every stage is recorded. */
+  /** Foreign brand to generic. Seeded by `npm run data:seed`. */
+  brands: defineTable({
+    /** Lowercase, non-alphanumerics stripped. */
+    key: v.string(),
+    brand: v.string(),
+    generic: v.string(),
+    country: v.string(),
+    via: v.string(),
+  }).index('by_key', ['key']),
+
+  /** Cambridge and Peterborough formulary. Seeded by `npm run data:seed`. */
+  formulary: defineTable({
+    key: v.string(),
+    drug: v.string(),
+    chapter: v.string(),
+    /** 'Green', 'Amber SCG', 'Red Hospital', 'Black', 'OTC'. */
+    rag: v.string(),
+  }).index('by_key', ['key']),
+
   calls: defineTable({
     patientId: v.id('patients'),
     vapiCallId: v.optional(v.string()),

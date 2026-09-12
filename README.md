@@ -1,30 +1,29 @@
 # NHS Onboard
 
 Reconstructs a migrant patient's medical history from partial, foreign-language
-records and hands a GP one reviewed set of actions — each traceable to the
-evidence that motivated it.
+records and hands a GP one reviewed set of actions, each traceable to the
+evidence behind it.
 
-Read **[CONTEXT.md](./CONTEXT.md)** first. It holds the glossary and the
-decisions already made; this file is how to run the thing.
+Read [CONTEXT.md](./CONTEXT.md) for the glossary and `docs/adr/` for the
+decisions. This file covers running the thing.
 
 ## Running it
 
 ```bash
 npm install
-cp .env.example .env.local     # fill in — see "Environment" below
-npm run data:fetch             # large datasets, gitignored
-npx convex dev                 # terminal 1 — backend + webhook
-npm run dev                    # terminal 2 — frontend on :5173
+cp .env.example .env.local
+npm run data:fetch
+npx convex dev      # terminal 1
+npm run dev         # terminal 2, serves :5173
 ```
 
 ## Environment
 
-**Both developers must use identical values for the shared block.** `SIM_KEY`
-*is* the world — different keys mean different 50,000-patient worlds, and you
-will spend twenty minutes debugging a ghost. Fill in `.env.local` once and paste
-it into Discord.
+Both developers use identical values for the shared block. `SIM_KEY` is the
+world. Different keys mean different 50,000-patient worlds. Fill in `.env.local`
+once and paste it into Discord.
 
-Get the sim key (team name is the join code — same name, same key, same world):
+Team name is the join code. The same name returns the same key and world.
 
 ```bash
 curl -s https://sim.animahacks.com/api/keys \
@@ -32,8 +31,7 @@ curl -s https://sim.animahacks.com/api/keys \
   -d '{"teamName":"<our team name>"}' | jq -r .apiKey
 ```
 
-Server-side secrets also need setting on the Convex deployment, not just in
-`.env.local`:
+Server secrets also need setting on the Convex deployment.
 
 ```bash
 npx convex env set OPENAI_API_KEY sk-...
@@ -42,27 +40,27 @@ npx convex env set SIM_ORIGIN https://sim.animahacks.com
 npx convex env set VAPI_PRIVATE_KEY ...
 ```
 
-**Use one shared Convex dev deployment.** Dev A runs `npx convex dev` first and
-shares `CONVEX_DEPLOYMENT` + `VITE_CONVEX_URL`. Separate deployments mean Dev B
-has no ingested patients to test the engine against.
+Use one shared Convex dev deployment. Dev A runs `npx convex dev` first and
+shares `CONVEX_DEPLOYMENT` and `VITE_CONVEX_URL`. On separate deployments, Dev B
+has no ingested patients to test against.
 
 ## How the work splits
 
-The contract is **`src/types.ts`** and **`convex/schema.ts`**. Dev A produces
-`PresentedDocument[]`; Dev B consumes them and produces `Recommendation[]`.
-Neither file gets edited without telling the other developer out loud.
+The contract is `src/types.ts` and `convex/schema.ts`. Dev A produces
+`PresentedDocument[]`. Dev B consumes them and produces `Recommendation[]`.
+Neither file changes without telling the other developer.
 
-| | **Dev A — data in** | **Dev B — judgement out** |
-|---|---|---|
-| | `convex/sim.ts` — adapter, normalise to `PatientRecord` | `convex/extract.ts` — 4 parallel agents → `Claim[]` |
-| | `convex/degrade.ts` — drop / translate / unstructure | `convex/meds.ts` — deterministic brand → UK lookup |
-| | `convex/schema.ts` — **owner** | `convex/rules.ts` + `rules/*.yaml` |
-| | `src/routes/board/` — status table | `convex/call.ts`, `convex/http.ts` — Vapi + webhook |
-| | `src/components/ui/` — shadcn installs | `src/routes/review/` — three confidence columns |
+| Dev A, data in | Dev B, judgement out |
+|---|---|
+| `convex/sim.ts`, adapter to PatientRecord | `convex/extract.ts`, 4 parallel agents to Claim[] |
+| `convex/degrade.ts`, drop, translate, unstructure | `convex/meds.ts`, deterministic brand lookup |
+| `convex/schema.ts`, owner | `convex/rules.ts` and `rules/*.yaml` |
+| `src/routes/board/`, status table | `convex/call.ts` and `convex/http.ts`, Vapi |
+| `src/components/ui/`, shadcn installs | `src/routes/review/`, three confidence columns |
 
-Both push directly to `main` — at this timescale PR review costs more than file
-ownership saves. `git pull --rebase` before every push. Commit every 10–15
-minutes using [Conventional Commits](https://www.conventionalcommits.org/):
+Both push to `main`. File ownership replaces PR review at this timescale. Run
+`git pull --rebase` before every push, and commit every 10 to 15 minutes using
+[Conventional Commits](https://www.conventionalcommits.org/).
 
 ```
 feat(sim): normalise GP records to PatientRecord
@@ -70,69 +68,64 @@ fix(call): raise customerJoinTimeoutSeconds for conference wifi
 chore(rules): add cervical screening rule with HPV-dependent interval
 ```
 
-**Checkpoints.** T+1h: both push, then run each other's code once. T+2h: feature
-freeze — wiring and demo script only. T+2h30: full dry run, twice.
+Checkpoints. At T+1h both push and run each other's code once. At T+2h features
+freeze and only wiring continues. At T+2h30 run the demo end to end, twice.
 
 ## Architecture
 
 ```
-sim ──► PatientRecord ──► degrader ──► PresentedDocument[]
-                              │                 │
-                     (answer key kept)    ┌─────┴─────┐
-                                         │  4 agents  │  parallel, narrow schemas
-                                         └─────┬─────┘
-                                               ▼
-                                          Claim[] ──► meds lookup (DETERMINISTIC)
-                                               │           │
-                                               ▼           ▼
-                                        rule pack ──► Recommendation[] + Gap[]
-                                               │
-                                     ┌─────────┴─────────┐
-                                     ▼                   ▼
-                              voice call (Vapi)    clinician review
-                                     │                   │
-                                     └──► Claim[] ───────┴──► write back to sim
-                                       patient-reported       (prescription → pharmacy,
-                                                               referral → referrals)
+sim -> PatientRecord -> degrader -> PresentedDocument[]
+                            |               |
+                   (truth retained)   4 agents, parallel
+                                            |
+                                        Claim[] -> meds lookup (deterministic)
+                                            |            |
+                                        rule pack -> Recommendation[] + Gap[]
+                                            |
+                              voice call (Vapi)     clinician review
+                                            |            |
+                                            +-> Claim[] -+-> write back to sim
 ```
 
-Two model stages, both parallel-fanned. The safety-critical middle is entirely
-deterministic.
+Two model stages. The middle is deterministic.
 
 ## Conventions
 
-**Agents.** `@openai/agents` on the Responses API. Tracing is on by default, so
-every run is recorded in the OpenAI dashboard — that's our audit trail. Keep
-static content (rule pack, instructions) at the *front* of prompts and variable
-patient content at the *back*, so prompt caching actually hits.
+**Agents.** `@openai/agents` on the Responses API. Tracing records every run in
+the OpenAI dashboard. Put static content at the front of prompts and patient
+content at the back so prompt caching hits.
 
-**Prompts live in the OpenAI dashboard**, referenced as `prompt: { id, version }`,
-so non-developers can tune them without a deploy. **Pin the version during the
-build**; unpin at 16:00 so they can tune live between demos. Zod schemas stay in
-code — prompts are editable by anyone, the output contract is not.
+**Prompts** live in the OpenAI dashboard as versioned objects, referenced by
+`prompt: { id, version }`, so Alisha and Neil can tune them without a deploy. Pin
+the version during the build. Unpin at 16:00. Zod schemas stay in code.
 
-**Tools are plain exported functions.** The agent wrapper is a thin layer on top.
+**Tools** are plain exported functions with a thin agent wrapper.
 
-**UI.** shadcn components carry all colour, typography, radius and shadow. Outside
-`src/components/ui/` you may use layout utilities only — `flex`, `grid`, `gap-*`,
-`w-*`, `max-w-*`. No `text-gray-500`, no `bg-blue-50`, no `rounded-lg`. Muted text
-is `text-muted-foreground`, a token, not a colour.
+**Comments** state what the code does now. They do not explain why, and they do
+not record history. Rationale belongs in `docs/adr/`. Write a comment only when
+the code cannot carry the meaning itself.
 
-- **Toast** — only the outcome of an async action the user just started.
-- **Alert** — persistent in-place conditions, next to what they describe.
-- **Dialog** — only a decision with consequence (approving the action set).
-- **Sheet** — detail views. Never a Dialog.
+**Prose**, in comments, docs, commits, UI copy and the submission, runs through
+the `unslop` skill in `.claude/skills/unslop/`. No em dashes.
 
-Badge variants map fixed to the three confidence buckets and are used nowhere
-else. Numbers get `tabular-nums`. Dates render `12 Sep 2026`. Empty states are
-specific sentences, not "No data found". No emoji in the UI.
+**UI.** shadcn components carry colour, typography, radius and shadow. Outside
+`src/components/ui/` use layout utilities only: `flex`, `grid`, `gap-*`, `w-*`,
+`max-w-*`. Muted text is `text-muted-foreground`.
 
-## Safety posture
+Toast reports the outcome of an async action the user started. Alert states a
+persistent condition next to what it describes. Dialog confirms a decision with
+consequence. Sheet shows detail.
 
-Read the decisions in [CONTEXT.md](./CONTEXT.md) before touching the mapping or
-recommendation path. The short version: models transliterate, datasets map,
-patient assertions never become prescriptions on their own, and an unresolved
-mapping is shown rather than hidden.
+Badge variants map to the three confidence buckets and nothing else. Numbers get
+`tabular-nums`. Dates render as `12 Sep 2026`. Empty states are specific
+sentences. No emoji.
+
+## Safety
+
+Models transliterate. Datasets map. Patient assertions alone never become
+prescriptions. An unresolved mapping is shown, not hidden. See
+[ADR 2](docs/adr/0002-drug-mapping-is-deterministic.md) and
+[ADR 3](docs/adr/0003-three-confidence-buckets.md).
 
 All patient data is synthetic, from the Anima NHS simulator. No real patient data
-is used anywhere in this project.
+is used.
