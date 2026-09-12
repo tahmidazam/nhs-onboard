@@ -107,6 +107,80 @@ pnpm dev         # terminal 2, serves :5173
 ADR 3 constrain the mapping and review code directly. Then take your column
 below and the matching GitHub issue.
 
+## Deployment
+
+Every push to `main` rebuilds the live site, so the rest of the team always sees
+current work without running anything.
+
+Vercel's build command is `convex deploy --cmd 'pnpm build'`. That deploys the
+Convex backend first, then builds the frontend with the production
+`VITE_CONVEX_URL` already injected, so the two never drift apart.
+
+### One-time setup
+
+These need a browser, so run them yourself. In Claude Code, prefix with `!` to
+run them in the session.
+
+```bash
+pnpm exec convex dev          # logs in, creates the dev deployment,
+                              # and generates convex/_generated
+```
+
+Leave that running. It is also the local backend.
+
+Set the secrets on the dev deployment:
+
+```bash
+pnpm exec convex env set OPENAI_API_KEY sk-...
+pnpm exec convex env set SIM_KEY sim-...
+pnpm exec convex env set SIM_ORIGIN https://sim.animahacks.com
+pnpm exec convex env set VAPI_PRIVATE_KEY ...
+```
+
+Then Vercel:
+
+```bash
+pnpm dlx vercel login
+pnpm dlx vercel link
+```
+
+In the Convex dashboard, open Settings, Deploy Keys, and generate a
+**production** key. Add it to Vercel along with the browser variables:
+
+```bash
+pnpm dlx vercel env add CONVEX_DEPLOY_KEY production
+pnpm dlx vercel env add VITE_VAPI_PUBLIC_KEY production
+pnpm dlx vercel env add VITE_VAPI_ASSISTANT_ID production
+```
+
+Connect the GitHub repo in the Vercel dashboard so pushes to `main` deploy
+automatically. Every PR also gets its own preview URL, which is the fastest way
+to show someone a branch before it merges.
+
+### Production is a separate deployment
+
+The production Convex deployment has its own environment and its own empty
+database. Set its secrets and seed it once:
+
+```bash
+pnpm exec convex env set --prod OPENAI_API_KEY sk-...
+pnpm exec convex env set --prod SIM_KEY sim-...
+pnpm exec convex env set --prod SIM_ORIGIN https://sim.animahacks.com
+pnpm exec convex env set --prod VAPI_PRIVATE_KEY ...
+
+VITE_CONVEX_URL=<production url> pnpm data:seed
+```
+
+Point the Vapi webhook at the production Convex HTTP URL, which is the
+deployment URL with `.convex.cloud` replaced by `.convex.site`.
+
+### Demo day
+
+Demo from `localhost` against the dev deployment. Vite hot reload beats waiting
+on a build, and a laptop on conference wifi beats a site that needs the venue's
+network to reach Vercel. The deployment is for teammates and for the submission's
+optional live product URL.
+
 ## How the work splits
 
 The contract is `src/types.ts` and `convex/schema.ts`. Neither changes without

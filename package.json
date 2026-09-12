@@ -24,12 +24,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "data:fetch": "bash scripts/fetch-data.sh",
     "data:seed": "tsx scripts/seed.ts",
     "data:export-idd": "bash scripts/export-idd.sh",
-    "data:dmd": "tsx scripts/parse-dmd.ts"
+    "data:dmd": "tsx scripts/parse-dmd.ts",
+    "deploy:convex": "convex deploy"
   },
   "packageManager": "pnpm@11.22.0"
 }
