@@ -11,6 +11,8 @@
     "jsx": "react-jsx",
     "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
+    /* process.env is read in call.ts and http.ts. */
+    "types": ["node"],
 
     /* These compiler options are required by Convex */
     "target": "ESNext",

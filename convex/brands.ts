@@ -1,15 +1,77 @@
 import { v } from 'convex/values'
 import { internalMutation, query } from './_generated/server'
+import type { QueryCtx } from './_generated/server'
 
 /** Lookup key shared by the seeder and every caller. */
 export function normalise(raw: string): string {
   return raw.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
 
+export interface Resolution {
+  brand: string
+  generic?: string
+  via: string
+  unresolved: boolean
+  ukIngredient?: string
+  prescribable?: string
+  vmpId?: string
+  ukFormularyName?: string
+  rag?: string
+  formularyMatches?: { drug: string; rag: string; chapter: string }[]
+}
+
 /**
  * Resolves a foreign brand to a UK formulary entry.
  * Deterministic. See docs/adr/0002-drug-mapping-is-deterministic.md.
  */
+export async function resolveBrand(ctx: QueryCtx, brand: string): Promise<Resolution | null> {
+  const key = normalise(brand)
+  if (!key) return null
+
+  let hit = await ctx.db
+    .query('brands')
+    .withIndex('by_key', (q) => q.eq('key', key))
+    .first()
+
+  if (!hit) {
+    const prefixed = await ctx.db
+      .query('brands')
+      .withIndex('by_key', (q) => q.gte('key', key).lt('key', key + '￿'))
+      .take(20)
+    hit = prefixed.sort((a, b) => a.brand.length - b.brand.length)[0] ?? null
+  }
+
+  if (!hit) return { brand, unresolved: true, via: 'unresolved' }
+
+  const stem = normalise(hit.generic.split(/[ (]/)[0])
+
+  const dmd = await ctx.db
+    .query('dmd')
+    .withIndex('by_key', (q) => q.gte('key', stem).lt('key', stem + '￿'))
+    .take(1)
+
+  /** dm+d carries the UK spelling, so search the formulary with it when present. */
+  const formularyStem = dmd[0] ? normalise(dmd[0].vtmName.split(/[ (]/)[0]) : stem
+  const formulary = await ctx.db
+    .query('formulary')
+    .withIndex('by_key', (q) => q.gte('key', formularyStem).lt('key', formularyStem + '￿'))
+    .take(5)
+
+  return {
+    brand,
+    generic: hit.generic,
+    via: hit.via,
+    unresolved: false,
+    ukIngredient: dmd[0]?.vtmName,
+    prescribable: dmd[0]?.vmpName,
+    vmpId: dmd[0]?.vmpId,
+    ukFormularyName: formulary[0]?.drug,
+    rag: formulary[0]?.rag,
+    formularyMatches: formulary.map((f) => ({ drug: f.drug, rag: f.rag, chapter: f.chapter })),
+  }
+}
+
+/** Thin query wrapper. The mapping path calls resolveBrand directly. */
 export const resolve = query({
   args: { brand: v.string() },
   returns: v.union(
@@ -29,52 +91,7 @@ export const resolve = query({
       ),
     }),
   ),
-  handler: async (ctx, { brand }) => {
-    const key = normalise(brand)
-    if (!key) return null
-
-    let hit = await ctx.db
-      .query('brands')
-      .withIndex('by_key', (q) => q.eq('key', key))
-      .first()
-
-    if (!hit) {
-      const prefixed = await ctx.db
-        .query('brands')
-        .withIndex('by_key', (q) => q.gte('key', key).lt('key', key + '￿'))
-        .take(20)
-      hit = prefixed.sort((a, b) => a.brand.length - b.brand.length)[0] ?? null
-    }
-
-    if (!hit) return { brand, unresolved: true as const, via: 'unresolved' as const }
-
-    const stem = normalise(hit.generic.split(/[ (]/)[0])
-
-    const dmd = await ctx.db
-      .query('dmd')
-      .withIndex('by_key', (q) => q.gte('key', stem).lt('key', stem + '￿'))
-      .take(1)
-
-    /** dm+d carries the UK spelling, so search the formulary with it when present. */
-    const formularyStem = dmd[0] ? normalise(dmd[0].vtmName.split(/[ (]/)[0]) : stem
-    const formulary = await ctx.db
-      .query('formulary')
-      .withIndex('by_key', (q) => q.gte('key', formularyStem).lt('key', formularyStem + '￿'))
-      .take(5)
-
-    return {
-      brand,
-      generic: hit.generic,
-      via: hit.via,
-      unresolved: false as const,
-      ukIngredient: dmd[0]?.vtmName,
-      prescribable: dmd[0]?.vmpName,
-      vmpId: dmd[0]?.vmpId,
-      ukFormularyName: formulary[0]?.drug,
-      rag: formulary[0]?.rag,
-      formularyMatches: formulary.map((f) => ({ drug: f.drug, rag: f.rag, chapter: f.chapter })),
-    }
-  },
+  handler: async (ctx, { brand }) => resolveBrand(ctx, brand),
 })
 
 export const insertBrands = internalMutation({
