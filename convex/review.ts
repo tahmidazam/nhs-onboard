@@ -5,30 +5,12 @@ import schema from './schema'
 
 /** Queries and mutations for the review screen. Approval schedules the write-back action. */
 
-/** Derived from the schema, so a new recommendation kind cannot break this query. */
-const recommendationDoc = schema.doc('recommendations')
-
-/** Patient header plus every recommendation the rule pack produced, for the review screen. */
-export const forPatient = query({
-  args: { patientId: v.id('patients') },
-  returns: v.object({
-    patient: v.union(v.null(), v.object({ _id: v.id('patients'), name: v.string() })),
-    recommendations: v.array(recommendationDoc),
-  }),
-  handler: async (ctx, { patientId }) => {
-    const patient = await ctx.db.get('patients', patientId)
-
-    const recommendations = await ctx.db
-      .query('recommendations')
-      .withIndex('by_patient', (q) => q.eq('patientId', patientId))
-      .take(500)
-
-    return {
-      patient: patient ? { _id: patient._id, name: patient.name } : null,
-      recommendations,
-    }
-  },
-})
+/**
+ * Derived from the schema, so a new recommendation kind cannot break this query
+ * and `clinicianNote` arrives without a second copy of the field list.
+ * Exported because convex/clinic.ts returns the same rows.
+ */
+export const recommendationDoc = schema.doc('recommendations')
 
 /**
  * The confirm dialog's action: moves the selected recommendations from
@@ -48,6 +30,34 @@ export const confirmApproved = mutation({
       await ctx.db.patch('recommendations', id, { status: 'approved' })
       await ctx.scheduler.runAfter(0, internal.writeback.post, { recommendationId: id })
     }
+    return null
+  },
+})
+
+/**
+ * Attaches the clinician's own words to a recommendation before it is written
+ * back. The note reaches the sim on `indication` or `clinicalDetails`, so it
+ * is the one part of the payload a person authored, and it is why
+ * `convex/lib/simAction.ts` labels it there.
+ *
+ * `proposed` only. A note on an approved row would describe a resource the sim
+ * already holds unchanged, which reads as a correction that never landed, and
+ * a note on a dismissed row has nowhere to go at all.
+ *
+ * An empty note removes the field rather than storing '': patch drops a field
+ * set to undefined, so clearing and never writing one leave the same row, and
+ * nothing downstream has to tell an empty note from no note.
+ */
+export const setNote = mutation({
+  args: { recommendationId: v.id('recommendations'), note: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { recommendationId, note }) => {
+    const recommendation = await ctx.db.get('recommendations', recommendationId)
+    if (!recommendation || recommendation.status !== 'proposed') return null
+    const trimmed = note.trim()
+    await ctx.db.patch('recommendations', recommendationId, {
+      clinicianNote: trimmed === '' ? undefined : trimmed,
+    })
     return null
   },
 })

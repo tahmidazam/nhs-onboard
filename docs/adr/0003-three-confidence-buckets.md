@@ -4,7 +4,10 @@ Date: 2026-09-12
 
 ## Status
 
-Accepted
+Accepted. The three-column presentation is superseded by
+[ADR 21](0021-two-shells-clinician-and-operator.md); the clinician screen silos
+by clinical action type and carries the bucket as a per-row flag. The decision
+this ADR exists for, three named buckets and nothing suppressed, stands.
 
 ## Context
 
@@ -25,8 +28,10 @@ Nothing is hidden below a threshold.
 
 ## Consequences
 
-The review UI has three columns, and badge variants map to the buckets and to
-nothing else.
+Badge variants map to the buckets and to nothing else. The review UI had three
+columns, one per bucket; ADR 21 replaced that axis with clinical action type and
+moved the bucket onto each row, which changes where the label sits and not what
+it means.
 
 The unresolved column is the feature that makes the other two trustworthy. A
 clinician can compensate for a flagged failure and cannot compensate for a hidden

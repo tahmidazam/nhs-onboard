@@ -60,6 +60,27 @@ export default defineSchema({
       }),
     ),
     /**
+     * Sex, which the sim carries in no field but does carry in the gendered
+     * pronouns of its narrative text. Read at onboarding by regex, or settled
+     * by the call when a patient's narrative has none, so it arrives with the
+     * same provenance every other fact does. See ADR 20.
+     *
+     * On `patients` rather than in `claims` because it is identity, like
+     * `name` and `country`, and because it must stay out of `truth`: the sim
+     * has no sex field, so RecoveryMetric cannot score it and must not try.
+     *
+     * A gate and never evidence, the way `country` is. A rule may read it to
+     * decide and must never put it in `consumed`, so no recommendation rests
+     * on it or inherits its bucket.
+     */
+    sex: v.optional(
+      v.object({
+        value: v.union(v.literal('male'), v.literal('female')),
+        confidence,
+        source: sourceRef,
+      }),
+    ),
+    /**
      * One entry per extraction call that failed twice. Recorded rather than
      * swallowed: a document that yielded nothing because a call failed is
      * otherwise indistinguishable from a document that held nothing, and that
@@ -144,7 +165,15 @@ export default defineSchema({
    */
   agentRuns: defineTable({
     patientId: v.id('patients'),
-    documentId: v.id('documents'),
+    /**
+     * Absent on a run that read a transcript rather than a document. Optional
+     * rather than a second table: the row records one model call, and which
+     * text it was handed is a property of the call, not a different kind of
+     * thing. Exactly one of this and `callId` is set.
+     */
+    documentId: v.optional(v.id('documents')),
+    /** Set on a run that read a call transcript. See ADR 22. */
+    callId: v.optional(v.id('calls')),
     /** The agent's trace name, matching `patients.extractionFailures.agent`. */
     agent: v.string(),
     /** Resolved at call time, never inferred later. See convex/extract.ts. */
@@ -173,8 +202,26 @@ export default defineSchema({
     patientId: v.id('patients'),
     question: v.string(),
     ruleId: v.string(),
-    status: v.union(v.literal('open'), v.literal('answered')),
+    /**
+     * `unanswered` means asked on the call and not established, which is worth
+     * telling apart from never asked: the dashboard prompt instructs the
+     * assistant to say so out loud, and ADR 3's refusal to suppress an
+     * unresolved row applies to a question too. It also counts as decided in
+     * `convex/rules.ts`'s reconciliation, so a re-run neither reopens it nor
+     * queues it for the next call. See ADR 22.
+     */
+    status: v.union(v.literal('open'), v.literal('answered'), v.literal('unanswered')),
     answer: v.optional(v.string()),
+    /**
+     * The patient's own words that closed the question, verbatim from the
+     * transcript. ADR 22 leans on this: an `answered` gap is only reviewable
+     * if the reader can see what was actually said, because the model decided
+     * the verdict and the assistant's readbacks are deliberately wrong.
+     * Absent on a gap nothing answered.
+     */
+    answerQuote: v.optional(v.string()),
+    /** Which call closed it, so review can open that transcript. */
+    answeredByCallId: v.optional(v.id('calls')),
     /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */
     outputKey: v.optional(v.string()),
     /** True when the evidence chain touches a synthesised document. See ADR 14. */
@@ -214,6 +261,14 @@ export default defineSchema({
     ),
     simResourceId: v.optional(v.string()),
     status: v.union(v.literal('proposed'), v.literal('approved'), v.literal('dismissed')),
+    /**
+     * Free text the clinician added before approving. Never written by the
+     * rule pack: `convex/rules.ts` patches a re-emitted row with the engine's
+     * fields only, and `ctx.db.patch` merges, so this survives a re-run.
+     * Held by a test, because that safety is incidental rather than designed.
+     * Travels to the sim on `indication`/`clinicalDetails`.
+     */
+    clinicianNote: v.optional(v.string()),
     /** The rule that produced this. See ADR 13. */
     ruleId: v.optional(v.string()),
     /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */
@@ -290,5 +345,19 @@ export default defineSchema({
     /** Set when the call is known to be over, whatever the transcript is doing. */
     endedAt: v.optional(v.number()),
     gapIds: v.array(v.id('gaps')),
+    /**
+     * The questions as the assistant received them, in the order `gapIds`
+     * holds them: index i of one is index i of the other. Frozen here rather
+     * than re-read from the gap rows, because a post-call re-run may have
+     * reworded a question, and an answer has to resolve against what the
+     * assistant was actually told to ask. See ADR 22.
+     */
+    goals: v.optional(v.array(v.string())),
+    /**
+     * Set once the transcript has been read for claims and answers, so a
+     * duplicate end-of-call report is a no-op rather than a second model call
+     * and a doubled set of claims.
+     */
+    transcriptReadAt: v.optional(v.number()),
   }).index('by_patient', ['patientId']).index('by_vapiCallId', ['vapiCallId']),
 })

@@ -8,6 +8,10 @@ import type { Recommendation, RecommendationKind, SimTarget } from '../../src/ty
  * `draft_prescription` and `order_test` keep their own evidence field:
  * `indication` and `clinicalDetails` are copied into the sim's `data.text`.
  * See `.claude/skills/nhs-sim/SKILL.md`.
+ *
+ * Every one of those fields carries the clinician's note where there is one,
+ * so a note written on the review screen reaches the prescribing screen rather
+ * than stopping at Convex.
  */
 
 export type SimActionType =
@@ -35,9 +39,29 @@ function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text
 }
 
-/** Folds the rationale into the title for the two action types that drop `text`. */
-function titleCarryingEvidence(rec: Pick<Recommendation, 'title' | 'rationale'>): string {
-  return truncate(`${rec.title} — ${rec.rationale}`, TITLE_MAX)
+/**
+ * The rationale as the sim should show it, with the clinician's note appended
+ * and named.
+ *
+ * Named rather than merged: the rationale is the rule pack's sentence and the
+ * note is a person's, they land in one field, and a prescriber reading it has
+ * to be able to tell which is which. The note goes last because it is the later
+ * and more specific of the two.
+ */
+function evidenceText(rec: Pick<Recommendation, 'rationale' | 'clinicianNote'>): string {
+  const note = rec.clinicianNote?.trim()
+  return note === undefined || note === '' ? rec.rationale : `${rec.rationale} Clinician note: ${note}`
+}
+
+/**
+ * Folds the evidence into the title for the action types that drop `text`.
+ *
+ * The note rides here too, under the same 500 character cap. A note that gets
+ * clipped still reaches the sim; a note left in `text` on one of these types
+ * reaches nothing at all.
+ */
+function titleCarryingEvidence(rec: Pick<Recommendation, 'title' | 'rationale' | 'clinicianNote'>): string {
+  return truncate(`${rec.title} — ${evidenceText(rec)}`, TITLE_MAX)
 }
 
 type PanelId = 'fbc' | 'ue' | 'hba1c' | 'lft' | 'crp' | 'lipids'
@@ -88,7 +112,7 @@ export interface SimAction {
  * own id, `patients.simId`, never the Convex document id.
  */
 export function buildSimAction(
-  rec: Pick<Recommendation, 'kind' | 'title' | 'rationale' | 'target'>,
+  rec: Pick<Recommendation, 'kind' | 'title' | 'rationale' | 'target' | 'clinicianNote'>,
   simPatientId: string,
 ): SimAction {
   const type = ACTION_TYPE[rec.kind]
@@ -110,7 +134,7 @@ export function buildSimAction(
           frequency: 'Once daily',
           duration: '28 days',
           quantity: 28,
-          indication: rec.rationale,
+          indication: evidenceText(rec),
         },
       }
 
@@ -125,7 +149,7 @@ export function buildSimAction(
           specimen: 'Venous blood',
           priority: 'routine',
           collection: 'now',
-          clinicalDetails: rec.rationale,
+          clinicalDetails: evidenceText(rec),
         },
       }
     }
@@ -135,7 +159,7 @@ export function buildSimAction(
         type,
         patientId: simPatientId,
         title: titleCarryingEvidence(rec),
-        text: rec.rationale,
+        text: evidenceText(rec),
         target: rec.target,
       }
 
@@ -144,7 +168,7 @@ export function buildSimAction(
         type,
         patientId: simPatientId,
         title: titleCarryingEvidence(rec),
-        text: rec.rationale,
+        text: evidenceText(rec),
       }
 
     // Both land on the record as history, not as work to do. The sim drops
@@ -155,7 +179,7 @@ export function buildSimAction(
         type,
         patientId: simPatientId,
         title: titleCarryingEvidence(rec),
-        text: rec.rationale,
+        text: evidenceText(rec),
       }
 
     case 'save_allergy':
@@ -163,7 +187,7 @@ export function buildSimAction(
         type,
         patientId: simPatientId,
         title: truncate(rec.title, TITLE_MAX),
-        text: rec.rationale,
+        text: evidenceText(rec),
       }
   }
 }

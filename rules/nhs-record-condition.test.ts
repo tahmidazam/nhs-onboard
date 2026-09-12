@@ -33,6 +33,7 @@ function profile(overrides: Partial<PatientProfile>): PatientProfile {
     conditions: [],
     medications: [],
     allergies: [],
+    familyHistory: [],
     immunisations: [],
     ...overrides,
   }

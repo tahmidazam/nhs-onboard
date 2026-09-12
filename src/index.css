@@ -42,6 +42,12 @@
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+    --color-silo-prescription: var(--silo-prescription);
+    --color-silo-referral: var(--silo-referral);
+    --color-silo-screening: var(--silo-screening);
+    --color-silo-immunisation: var(--silo-immunisation);
+    --color-silo-test: var(--silo-test);
+    --color-silo-record: var(--silo-record);
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
     --radius-lg: var(--radius);
@@ -84,6 +90,19 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    /**
+     * One hue per action silo on the clinician screen. Same lightness and
+     * chroma throughout, so the set reads as one system, and deliberately
+     * muted: this is meant to look like software a practice bought. `record`
+     * carries almost no chroma because that silo actions nothing, it only
+     * lands on the record.
+     */
+    --silo-prescription: oklch(0.55 0.13 255);
+    --silo-referral: oklch(0.55 0.13 300);
+    --silo-screening: oklch(0.55 0.13 195);
+    --silo-immunisation: oklch(0.55 0.13 150);
+    --silo-test: oklch(0.55 0.13 75);
+    --silo-record: oklch(0.55 0.03 255);
 }
 
 .dark {
@@ -118,6 +137,13 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    /** Lifted for contrast on the dark ground. Hues match the light set. */
+    --silo-prescription: oklch(0.70 0.12 255);
+    --silo-referral: oklch(0.70 0.12 300);
+    --silo-screening: oklch(0.70 0.12 195);
+    --silo-immunisation: oklch(0.70 0.12 150);
+    --silo-test: oklch(0.70 0.12 75);
+    --silo-record: oklch(0.70 0.03 255);
 }
 
 @layer base {

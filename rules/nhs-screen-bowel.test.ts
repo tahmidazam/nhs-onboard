@@ -29,6 +29,7 @@ function aged(ageYears: number): PatientProfile {
     conditions: [],
     medications: [],
     allergies: [],
+    familyHistory: [],
     immunisations: [],
   }
 }

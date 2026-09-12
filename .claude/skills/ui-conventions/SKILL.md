@@ -88,6 +88,12 @@ colour means one thing across the whole app.
 | `patient-reported` | `secondary` |
 | `uncertain-mapping` | `outline` |
 
+Those three are spoken for, so the clinician screen's action silos cannot borrow
+them. Silo colour comes from six `--silo-*` tokens declared in the theme layer
+of `src/index.css` and consumed through `SILO_ACCENT` / `SILO_TEXT` in
+`src/lib/buckets.ts`, which also holds the one copy of the bucket variant map
+and the label map. Import from there rather than writing a fourth copy.
+
 ## Routing
 
 TanStack Router, not react-router. Define the route tree in code rather than
@@ -95,21 +101,35 @@ adding the file-based routing plugin, so there is no codegen step in the build.
 
 ## Layout
 
-Every route renders inside the shadcn `Sidebar`. Add it with
-`pnpm dlx shadcn@latest add sidebar` and use `SidebarProvider`, `Sidebar`,
-`SidebarInset` and `SidebarTrigger` as composed, rather than hand-rolling a nav
-column.
+Two shells, because there are two audiences. See ADR 21.
 
-Sidebar navigation: Board, Rules, Sources. Its footer shows the sim clock and the
-world name.
+The **clinician shell** (`src/routes/clinic/ClinicShell.tsx`) has no sidebar: a
+thin header and the content. Quieter and plainer than the operator side, because
+this is the surface that has to read as software a practice bought.
 
-Three routes:
+The **operator shell** (`src/routes/AppLayout.tsx`) is the shadcn `Sidebar`,
+composed with `SidebarProvider`, `Sidebar`, `SidebarInset` and `SidebarTrigger`
+rather than a hand-rolled nav column. Navigation: Board, Rules. Its footer shows
+the sim clock.
 
-- `/` is the board: every onboarded patient and their pipeline stage.
-- `/patient/:id` splits source documents against the extracted record with
-  `ResizablePanelGroup`. Clicking a claim highlights its source span.
-- `/patient/:id/review` shows the three confidence columns, each row naming its
-  destination in the sim.
+Clinician routes:
+
+- `/` is the patient list: every patient, their actions waiting, and how well
+  evidenced those actions are.
+- `/patient/:id` is the SBAR header over actions siloed by clinical action type.
+  Each row carries its confidence bucket as a flag and a checkbox; the evidence
+  chain, quotes and citations open in a `Sheet`.
+
+Operator routes:
+
+- `/ops` is the board: every onboarded patient and their pipeline stage.
+- `/ops/rules` is the rule pack and its citations.
+- `/ops/patient/:id` splits source documents against the extracted record.
+  Clicking a claim highlights its source span.
+
+Both shells hang off a bare root as pathless layout routes, whose generated ids
+are `_clinic` and `_operator`. A typed route API call is therefore
+`getRouteApi('/_clinic/patient/$id')`, not `getRouteApi('/patient/$id')`.
 
 ## Finding a patient
 

@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 import { api, internal } from './_generated/api'
-import { action, internalMutation } from './_generated/server'
+import { action, internalAction, internalMutation } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { isForwardMove } from './lib/pipelineStages'
@@ -67,6 +67,57 @@ async function optionalStage(label: string, run: () => Promise<unknown>): Promis
   }
 }
 
+/** What the rule pack emitted, and what a re-run reconciled away. */
+const rulesResult = v.object({
+  recommendations: v.number(),
+  gaps: v.number(),
+  removed: v.number(),
+})
+
+interface RulesResult {
+  recommendations: number
+  gaps: number
+  removed: number
+}
+
+/**
+ * The one place that turns the sim clock into `asOf`.
+ *
+ * `applyRules` takes the date as an argument and never fetches it, so the step
+ * stays deterministic and quotes the same clock the screen shows (ADR 11).
+ * Something has to do the fetching, and `readClock` is HTTP, so it has to be an
+ * action. This is it, and both callers go through it rather than each reading
+ * the clock their own way and disagreeing by a tick.
+ */
+async function applyRulesAsOfNow(
+  ctx: ActionCtx,
+  patientId: Id<'patients'>,
+): Promise<RulesResult> {
+  const clock = await readClock()
+  return await ctx.runMutation(internal.rules.applyRules, {
+    patientId,
+    asOf: new Date(clock.now).toISOString(),
+  })
+}
+
+/**
+ * Re-runs the rule pack against whatever the record now holds, at the sim's
+ * current date. Called by convex/callExtract.ts once the call's claims and
+ * answers are written, which is the whole reason it is a separate export: that
+ * module carries `"use node"` for @openai/agents, and this keeps `readClock`
+ * and the sim client out of the Node bundle.
+ *
+ * Safe to repeat. `planRows` in convex/rules.ts treats a decided row as
+ * decided, so an approved recommendation and an answered or unanswered gap are
+ * untouched, and the stage guard there only ever moves forward. See ADR 22.
+ */
+export const applyRulesNow = internalAction({
+  args: { patientId: v.id('patients') },
+  returns: rulesResult,
+  handler: async (ctx: ActionCtx, { patientId }: { patientId: Id<'patients'> }): Promise<RulesResult> =>
+    applyRulesAsOfNow(ctx, patientId),
+})
+
 export const run = action({
   args: { patientId: v.id('patients') },
   returns: v.null(),
@@ -79,11 +130,7 @@ export const run = action({
     await ctx.runMutation(internal.map.mapPatient, { patientId })
 
     await ctx.runMutation(internal.pipeline.advanceStage, { patientId, stage: 'applying-rules' })
-    const clock = await readClock()
-    await ctx.runMutation(internal.rules.applyRules, {
-      patientId,
-      asOf: new Date(clock.now).toISOString(),
-    })
+    await applyRulesAsOfNow(ctx, patientId)
 
     await ctx.runMutation(internal.pipeline.advanceStage, { patientId, stage: FINAL_STAGE })
     return null

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { degradeRecord } from './degradeRecord'
 import { DEFAULT_SEVERITY, scaleLoss } from './degradeConstants'
+import { sexFromText } from './sexFromText'
 import type { PatientRecord } from '../../src/types'
 
 const record: PatientRecord = {
@@ -118,6 +119,81 @@ describe('degradeRecord under a scaled loss table', () => {
   it('matches the untuned call at the default severity', () => {
     expect(degradeRecord(record, 'BD', 'seed-1', scaleLoss(DEFAULT_SEVERITY))).toEqual(
       degradeRecord(record, 'BD', 'seed-1'),
+    )
+  })
+})
+
+/**
+ * ADR 20: the sim states sex only in narrative prose, read at onboarding and
+ * passed in here. The degrader draws nothing, so a letter never contradicts
+ * the name printed above the history.
+ */
+describe('degradeRecord with a sex established at onboarding', () => {
+  const letterFor = (sex?: 'male' | 'female', seed = 'seed-1', loss = undefined) =>
+    degradeRecord(record, 'BD', seed, loss, sex).documents.find((d) => d.kind === 'clinic-letter')!
+
+  it('renders a coded diagnosis in the third person', () => {
+    // Severity 0 keeps every condition and codes every one of them, so this
+    // asserts the coded template on all five rather than on whichever survived.
+    const letter = degradeRecord(record, 'BD', 'seed-1', scaleLoss(0), 'female').documents.find(
+      (d) => d.kind === 'clinic-letter',
+    )!
+    for (const condition of record.conditions) {
+      expect(letter.text).toContain(`She has a known diagnosis of ${condition}.`)
+    }
+  })
+
+  it('renders an uncoded condition in the third person', () => {
+    const lines = Array.from({ length: 40 }, (_, i) => letterFor('male', `sex-seed-${i}`).text.split('\n')).flat()
+    const uncoded = lines.filter((line) => line.includes('describes ongoing issues consistent with'))
+
+    expect(uncoded.length).toBeGreaterThan(0)
+    for (const line of uncoded) expect(line.startsWith('He describes ongoing issues')).toBe(true)
+  })
+
+  it('closes the letter with an administrative line that does not depend on what survived', () => {
+    expect(letterFor('female').text).toContain(
+      'Please contact the clinic if she requires a copy of her records.',
+    )
+    expect(letterFor('male').text).toContain(
+      'Please contact the clinic if he requires a copy of his records.',
+    )
+  })
+
+  it('reverts to the pronoun-free templates when the sim never said', () => {
+    const letter = letterFor(undefined)
+    expect(sexFromText(letter.text)).toBeUndefined()
+    expect(letter.text).not.toContain('Please contact the clinic')
+    expect(letter.text).toContain('Patient describes ongoing issues consistent with')
+  })
+
+  it('reads back the sex it was given, and only that sex', () => {
+    expect(sexFromText(letterFor('female').text)?.value).toBe('female')
+    expect(sexFromText(letterFor('male').text)?.value).toBe('male')
+  })
+
+  /**
+   * The reproducibility ADR 10 asks for. `sex` is consumed outside the
+   * generator, so the loss decisions, the clinic name and the reference number
+   * all fall the same way with it and without it. If this fails, every
+   * already-onboarded patient re-degrades into a different record.
+   */
+  it('consumes no draw, so it changes the wording and nothing else', () => {
+    for (let i = 0; i < 20; i++) {
+      const seed = `no-shift-${i}`
+      const plain = degradeRecord(record, 'BD', seed)
+      const gendered = degradeRecord(record, 'BD', seed, undefined, 'female')
+
+      expect(gendered.documents.map((d) => d.facts)).toEqual(plain.documents.map((d) => d.facts))
+      expect(gendered.documents.find((d) => d.kind === 'prescription-list')).toEqual(
+        plain.documents.find((d) => d.kind === 'prescription-list'),
+      )
+    }
+  })
+
+  it('stays deterministic for a given seed and sex', () => {
+    expect(degradeRecord(record, 'BD', 'seed-1', undefined, 'male')).toEqual(
+      degradeRecord(record, 'BD', 'seed-1', undefined, 'male'),
     )
   })
 })

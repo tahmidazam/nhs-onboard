@@ -5,7 +5,7 @@ import type { Recommendation } from '../../src/types'
 /** A minimal recommendation, one field overridden per test. */
 function recommendation(overrides: Partial<Recommendation> = {}): Pick<
   Recommendation,
-  'kind' | 'title' | 'rationale' | 'target'
+  'kind' | 'title' | 'rationale' | 'target' | 'clinicianNote'
 > {
   return {
     kind: 'referral',
@@ -57,6 +57,45 @@ describe('buildSimAction', () => {
     const action = buildSimAction(recommendation({ kind: 'screening' }), 'SIM-000001')
     expect(action.type).toBe('create_task')
     expect(action.title).toContain(recommendation().rationale)
+  })
+
+  /**
+   * The note is the one part of the payload a person wrote, so every field the
+   * sim shows a prescriber has to carry it and has to say whose words they are.
+   */
+  it('appends the clinician note to indication, labelled', () => {
+    const action = buildSimAction(
+      recommendation({ kind: 'prescription', clinicianNote: '  Halve the dose while renal function is unknown.  ' }),
+      'SIM-000001',
+    )
+    expect(action.medicationOrder?.indication).toBe(
+      `${recommendation().rationale} Clinician note: Halve the dose while renal function is unknown.`,
+    )
+  })
+
+  it('appends the clinician note to clinicalDetails', () => {
+    const action = buildSimAction(
+      recommendation({ kind: 'test', title: 'HbA1c check', rationale: 'Annual review due.', clinicianNote: 'Fasting.' }),
+      'SIM-000001',
+    )
+    expect(action.bloodTestOrder?.clinicalDetails).toBe('Annual review due. Clinician note: Fasting.')
+  })
+
+  /** The action types the sim drops `text` on would otherwise lose the note entirely. */
+  it('carries the clinician note in the title for the types that drop text', () => {
+    const action = buildSimAction(recommendation({ kind: 'referral', clinicianNote: 'Urgent.' }), 'SIM-000001')
+    expect(action.title).toContain('Clinician note: Urgent.')
+  })
+
+  /** A note nobody wrote must not leave the label behind on its own. */
+  it('leaves the evidence text alone when there is no note, or only whitespace', () => {
+    expect(buildSimAction(recommendation({ kind: 'prescription' }), 'SIM-000001').medicationOrder?.indication).toBe(
+      recommendation().rationale,
+    )
+    expect(
+      buildSimAction(recommendation({ kind: 'prescription', clinicianNote: '   ' }), 'SIM-000001').medicationOrder
+        ?.indication,
+    ).toBe(recommendation().rationale)
   })
 
   it('truncates a title over 500 characters', () => {

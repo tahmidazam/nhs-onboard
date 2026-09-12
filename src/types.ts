@@ -23,6 +23,18 @@ export interface SourceRef {
   verified?: boolean
 }
 
+/**
+ * Sex with its provenance. The sim has no sex field, so this is read at
+ * onboarding from the gendered pronouns in its narrative text, or settled by
+ * the call when a patient's narrative has none. A gate and never evidence, so
+ * no recommendation consumes it. See ADR 20.
+ */
+export interface PatientSex {
+  value: 'male' | 'female'
+  confidence: Confidence
+  source: SourceRef
+}
+
 /** A patient as the sim holds them. Also the answer key for RecoveryMetric. */
 export interface PatientRecord {
   id: string
@@ -87,8 +99,22 @@ export interface Gap {
   /** Also used as the voice agent's goal for the call. */
   question: string
   ruleId: string
-  status: 'open' | 'answered'
+  /**
+   * `unanswered` means asked on the call and not established, which is worth
+   * telling apart from never asked. It also counts as decided in the rule
+   * pack's reconciliation, so a re-run neither reopens it nor queues it for the
+   * next call. See ADR 22.
+   */
+  status: 'open' | 'answered' | 'unanswered'
   answer?: string
+  /**
+   * The patient's own words that closed the question, verbatim from the
+   * transcript, so an `answered` gap is reviewable rather than asserted.
+   * See ADR 22.
+   */
+  answerQuote?: string
+  /** Which call closed it, so review can open that transcript. */
+  answeredByCallId?: string
   /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */
   outputKey?: string
   /** True when the evidence chain touches a synthesised document. See ADR 14. */
@@ -130,6 +156,12 @@ export interface Recommendation {
   target: SimTarget
   simResourceId?: string
   status: 'proposed' | 'approved' | 'dismissed'
+  /**
+   * Free text the clinician added before approving. Survives a rule re-run
+   * because the engine never writes this field and `patch` merges. Travels to
+   * the sim on `indication`/`clinicalDetails`.
+   */
+  clinicianNote?: string
   /** The rule that produced this. See ADR 13. */
   ruleId?: string
   /** `${ruleId}:${discriminator}`. Makes a post-call re-run idempotent. */

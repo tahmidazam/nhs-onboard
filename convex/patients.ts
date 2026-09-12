@@ -3,8 +3,11 @@ import { action, internalMutation, internalQuery, query } from './_generated/ser
 import { internal } from './_generated/api'
 import type { Doc, Id } from './_generated/dataModel'
 import { viewPatient } from './lib/simClient'
-import { normalisePatient } from './lib/normalisePatient'
+import { normalisePatient, sexFromNarrative } from './lib/normalisePatient'
+import { bucketFor } from './lib/confidence'
+import type { SexFromText } from './lib/sexFromText'
 import { sourceForCountry } from '../src/lib/sources'
+import type { PatientSex } from '../src/types'
 import schema from './schema'
 
 const truth = v.object({
@@ -19,6 +22,25 @@ const truth = v.object({
  * `patients` cannot leave this query rejecting its own rows.
  */
 const patientDoc = schema.doc('patients')
+
+/**
+ * `patients.sex` as stored, from a pronoun in the simulator's narrative.
+ *
+ * `sim-record` is the honest source kind: the sentence came from the sim's own
+ * record rather than from a PresentedDocument, and it is the kind
+ * convex/lib/confidence.ts already grades `document-evidenced`, so no bucket
+ * is decided here. No `verified`, because ADR 17 anchors a quote against a
+ * document and there is no document to anchor against. No `synthesised`,
+ * because nothing was invented: this is the sim's own prose, quoted. See ADR
+ * 20.
+ */
+function storedSex(simId: string, read: SexFromText): PatientSex {
+  return {
+    value: read.value,
+    confidence: bucketFor({ sourceKind: 'sim-record' }),
+    source: { kind: 'sim-record', id: simId, quote: read.quote },
+  }
+}
 
 /** Drives the board. Reactive: a client subscribed to this sees stage changes without a refresh. */
 export const list = query({
@@ -68,20 +90,37 @@ export const upsert = internalMutation({
     country: v.string(),
     truth,
     degradation: v.optional(v.object({ severity: v.number(), translate: v.boolean() })),
+    /** Already optional on the schema, so a caller that read no pronoun omits it. */
+    sex: patientDoc.fields.sex,
   },
   returns: v.id('patients'),
-  handler: async (ctx, { simId, name, birthDate, country, truth, degradation }) => {
+  handler: async (ctx, { simId, name, birthDate, country, truth, degradation, sex }) => {
     const existing = await ctx.db
       .query('patients')
       .withIndex('by_simId', (q) => q.eq('simId', simId))
       .unique()
 
     if (existing) {
-      await ctx.db.patch('patients', existing._id, { name, birthDate, country, ...(degradation ? { degradation } : {}) })
+      /**
+       * Sex gets the same care as `truth`, for a different reason. ADR 11
+       * freezes `truth` because it is the answer key. Sex is not scored, but a
+       * value that came from a call is the patient's own statement, and a
+       * value read off the record is a pronoun someone else wrote in prose.
+       * The statement outranks the pronoun, so a re-onboard never overwrites a
+       * `transcript` source. See ADR 20.
+       */
+      const settledOnACall = existing.sex?.source.kind === 'transcript'
+      await ctx.db.patch('patients', existing._id, {
+        name,
+        birthDate,
+        country,
+        ...(degradation ? { degradation } : {}),
+        ...(sex && !settledOnACall ? { sex } : {}),
+      })
       return existing._id
     }
 
-    return await ctx.db.insert('patients', { simId, name, birthDate, country, truth, degradation, stage: 'degrading' })
+    return await ctx.db.insert('patients', { simId, name, birthDate, country, truth, degradation, sex, stage: 'degrading' })
   },
 })
 
@@ -91,7 +130,7 @@ export const upsert = internalMutation({
  * creating a duplicate: two developers share one Convex dev deployment, so
  * accidental double-onboarding happens. The already-onboarded row's truth
  * is left untouched, since ADR 11 freezes it at first onboarding; only the
- * identity fields refresh.
+ * identity fields refresh, and `sex` is filled in where the row has none.
  */
 export const onboard = action({
   args: {
@@ -113,6 +152,13 @@ export const onboard = action({
       simId: patientId,
     })
     if (existing) {
+      /**
+       * A row onboarded before ADR 20 carries no sex, and re-onboarding is how
+       * it gets one. The view is re-read for that case only: it is an HTTP
+       * round trip per page, and a row that already holds a sex, off the
+       * record or off a call, needs nothing from it.
+       */
+      const narrative = existing.sex ? undefined : sexFromNarrative(await viewPatient(patientId))
       return await ctx.runMutation(internal.patients.upsert, {
         simId: patientId,
         name,
@@ -120,6 +166,7 @@ export const onboard = action({
         country: upperCountry,
         truth: existing.truth,
         degradation,
+        ...(narrative ? { sex: storedSex(patientId, narrative) } : {}),
       })
     }
 
@@ -128,6 +175,7 @@ export const onboard = action({
       patient: { id: patientId, name, birthDate, localIds: {}, conditions: [], needs: [], goals: [] },
       resources,
     })
+    const sexRead = sexFromNarrative(resources)
 
     return await ctx.runMutation(internal.patients.upsert, {
       simId: record.id,
@@ -141,6 +189,15 @@ export const onboard = action({
         immunisations: record.immunisations,
       },
       degradation,
+      /**
+       * Read here rather than in extraction, because the pronoun is in the sim
+       * view this action already has in hand and never reaches a
+       * PresentedDocument: the degrader assembles documents from `truth`,
+       * which holds no prose. Absent where the sim wrote no pronoun for this
+       * patient, or wrote both, and then the sex rule asks on the call
+       * instead. See ADR 20.
+       */
+      ...(sexRead ? { sex: storedSex(record.id, sexRead) } : {}),
     })
   },
 })

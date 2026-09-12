@@ -152,6 +152,11 @@ export const applyRules = internalMutation({
         patientId: patient.simId,
         birthDate: patient.birthDate,
         country: countryOf(documents),
+        // Only the value. Sex gates a rule and is never consumed by one, so the
+        // bucket and the quote stay on the patient row where the header reads
+        // them. Absent until onboarding finds a pronoun or a call settles it,
+        // which is the case `nhs-establish-sex` exists for. See ADR 20.
+        sex: patient.sex?.value,
       },
       claims.map(toClaim),
       asOf,

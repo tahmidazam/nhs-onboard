@@ -24,11 +24,17 @@ import type { Citation } from './types'
  * Query: distinct countrySlug, every row
  * Matched: 135 countries.
  *
- * Not a rule gate. `ukhsa-new-arrival-orientation` declares `countries: 'all'`
- * so that it fires for a patient from a country with no guide at all; this list
- * is what the tests iterate to show it fires for every country that has one.
- * All 135 of them cite the NHS entitlements guide, which is why that rule
- * is available to anyone.
+ * Not a rule gate, and nothing in the shipped pack reads it. It is the whole
+ * set HEPB_SCREENING_COUNTRIES below is a subset of, which is what makes that
+ * gate's 98 of 135 checkable rather than asserted.
+ *
+ * All 135 cite the NHS entitlements guide, the one section every guide carries.
+ * ADR 15 recorded that as licensing a rule that fires on every patient, and
+ * `ukhsa-new-arrival-orientation` was it. That rule is gone: orientation is not
+ * clinical, and a review screen whose emptiness was prevented by a
+ * non-clinical row was hiding the thin record rather than reporting it.
+ * `ukhsa-imm-primary-course` and `nhs-general-history` fire on every patient
+ * on clinical grounds, and they are what carries a thin record now.
  */
 export const GUIDE_COUNTRIES: string[] = [
   "AE", "AF", "AG", "AL", "AM", "AO", "AR", "AZ", "BA", "BB", "BD", "BG",

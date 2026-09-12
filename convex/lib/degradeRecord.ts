@@ -4,10 +4,24 @@
  * call. See docs/adr/0010-degrader-is-template-driven.md.
  *
  * Every clinical string this module writes is either a verbatim entry from
- * `record` or a substring of one. Non-clinical furniture (clinic name,
- * reference number) comes from the fixed lists below.
+ * `record` or a substring of one. Non-clinical furniture is invented: the
+ * clinic name and the reference number, which ADR 10 licenses as the noise
+ * that makes a document look like a document.
+ *
+ * The pronoun is neither of those two things, so be exact about it. It is not
+ * a substring of `record`'s truth arrays, and it is not invented here: it
+ * comes from `patients.sex`, which ADR 20 read out of the simulator's own
+ * narrative text at onboarding. It is a fact the sim holds, arriving through a
+ * field rather than through `truth`, and the caller passes it in. Nothing in
+ * this module draws it, because a pronoun that disagreed with the name on the
+ * letter would read as a bug rather than as a degraded record.
+ *
+ * `sex` omitted is the honest default and the common one: the sim writes
+ * pronouns for some patients only, and a letter about a patient whose record
+ * never said reverts to the pronoun-free templates and says nothing either.
+ * Sex is then a Gap for the call, per ADR 20.
  */
-import type { PatientRecord } from '../../src/types'
+import type { PatientRecord, PatientSex } from '../../src/types'
 import { LOSS_RATES, type LossTable } from './degradeConstants'
 
 export type DegradedDocumentKind = 'clinic-letter' | 'prescription-list'
@@ -27,6 +41,17 @@ export interface DegradedDocument {
 
 export interface DegradeResult {
   documents: DegradedDocument[]
+}
+
+interface Pronouns {
+  /** Sentence-initial, which is where the condition templates put it. */
+  subject: string
+  possessive: string
+}
+
+const PRONOUNS: Record<PatientSex['value'], Pronouns> = {
+  male: { subject: 'He', possessive: 'his' },
+  female: { subject: 'She', possessive: 'her' },
 }
 
 const CLINIC_NAMES = [
@@ -93,8 +118,18 @@ function splitAllergy(raw: string): { substance: string; reaction?: string } {
   return { substance: raw.trim() }
 }
 
-function renderCondition(term: string, coded: boolean): string {
-  return coded ? `Known diagnosis: ${term}.` : `Patient describes ongoing issues consistent with ${term}.`
+/**
+ * `term` is verbatim from the snapshot in all four forms. Only the subject
+ * changes: a pronoun where ADR 20 established one, and "Patient" where it did
+ * not, which is what the pronoun-free record should read like.
+ */
+function renderCondition(term: string, coded: boolean, pronouns?: Pronouns): string {
+  if (!pronouns) {
+    return coded ? `Known diagnosis: ${term}.` : `Patient describes ongoing issues consistent with ${term}.`
+  }
+  return coded
+    ? `${pronouns.subject} has a known diagnosis of ${term}.`
+    : `${pronouns.subject} describes ongoing issues consistent with ${term}.`
 }
 
 interface CategoryResult {
@@ -107,13 +142,18 @@ interface CategoryResult {
  * still marks it active: a migrating record does not reliably carry
  * resolution either. See CONTEXT.md's known gaps section.
  */
-function degradeConditions(conditions: string[], rng: () => number, loss: LossTable): CategoryResult {
+function degradeConditions(
+  conditions: string[],
+  rng: () => number,
+  loss: LossTable,
+  pronouns?: Pronouns,
+): CategoryResult {
   const lines: string[] = []
   const facts: string[] = []
   for (const term of conditions) {
     if (rng() > loss.condition.survives) continue
     const coded = rng() < loss.condition.attributes.codedDiagnosis
-    lines.push(renderCondition(term, coded))
+    lines.push(renderCondition(term, coded, pronouns))
     facts.push(term)
   }
   return { lines, facts }
@@ -161,7 +201,13 @@ function degradeMedications(medications: string[], rng: () => number, loss: Loss
   return { lines, facts, names }
 }
 
-function renderClinicLetter(record: PatientRecord, rng: () => number, conditionLines: string[], allergyLines: string[]): string {
+function renderClinicLetter(
+  record: PatientRecord,
+  rng: () => number,
+  conditionLines: string[],
+  allergyLines: string[],
+  pronouns?: Pronouns,
+): string {
   return [
     pick(rng, CLINIC_NAMES),
     `Reference: ${referenceNumber(rng)}`,
@@ -173,6 +219,15 @@ function renderClinicLetter(record: PatientRecord, rng: () => number, conditionL
     '',
     'Allergies:',
     ...(allergyLines.length ? allergyLines : ['Patient could not recall any known drug allergies.']),
+    // Administrative, and the one line that does not depend on what survived
+    // the loss table. A record whose every condition was lost still reads as a
+    // record about a person.
+    ...(pronouns
+      ? [
+          '',
+          `Please contact the clinic if ${pronouns.subject.toLowerCase()} requires a copy of ${pronouns.possessive} records.`,
+        ]
+      : []),
   ].join('\n')
 }
 
@@ -192,6 +247,10 @@ function renderPrescriptionList(record: PatientRecord, rng: () => number, medica
  * Seeded, so the same `seed` (the patient's sim id) always produces the same
  * output. A category with nothing in the snapshot produces no document.
  *
+ * `sex` renders the clinic letter in the third person, and is the only
+ * argument that is not part of the frozen snapshot. Omitted, the letter reads
+ * exactly as it did before ADR 20.
+ *
  * `loss` defaults to the shipped table. The operator's severity dial passes a
  * scaled copy, which changes how much survives without changing the draws:
  * the same seed at two severities still reads as the same record, degraded
@@ -202,18 +261,29 @@ export function degradeRecord(
   country: string,
   seed: string,
   loss: LossTable = LOSS_RATES,
+  /** From `patients.sex`, itself read off the sim's narrative. Absent where the sim never said. */
+  sex?: PatientSex['value'],
 ): DegradeResult {
   const rng = seededRandom(seed)
+
+  /**
+   * Consumes no draw, which is the point. `sex` arrives from outside the
+   * generator, so adding it moved no existing patient's document: the same
+   * seed still makes the same loss decisions in the same order, at every
+   * severity. See ADR 10 on reproducibility.
+   */
+  const pronouns = sex ? PRONOUNS[sex] : undefined
+
   const documents: DegradedDocument[] = []
 
   if (record.conditions.length > 0 || record.allergies.length > 0) {
-    const conditions = degradeConditions(record.conditions, rng, loss)
+    const conditions = degradeConditions(record.conditions, rng, loss, pronouns)
     const allergies = degradeAllergies(record.allergies, rng, loss)
     documents.push({
       kind: 'clinic-letter',
       language: 'en',
       country,
-      text: renderClinicLetter(record, rng, conditions.lines, allergies.lines),
+      text: renderClinicLetter(record, rng, conditions.lines, allergies.lines, pronouns),
       facts: [...conditions.facts, ...allergies.facts],
     })
   }

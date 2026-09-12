@@ -118,6 +118,28 @@ describe('matchRecovery anchoring predicate', () => {
     expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 1 })
   })
 
+  it('counts a transcript claim whose quote anchored against the patient\'s own turns', () => {
+    const claims = [
+      asthmaClaim({ kind: 'transcript', id: 'call-1', quote: 'I have asthma', verified: true }),
+    ]
+
+    expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 1 })
+  })
+
+  /**
+   * The claim is kept and shown, per ADR 3, and it does not score. A quote the
+   * anchor rejected came from the assistant's readback rather than the
+   * patient's mouth, so counting it would score our own guess as a recovered
+   * fact. See ADR 17 and ADR 22.
+   */
+  it('does not count a transcript claim whose quote failed to anchor', () => {
+    const claims = [
+      asthmaClaim({ kind: 'transcript', id: 'call-1', quote: 'so that is asthma', verified: false }),
+    ]
+
+    expect(matchRecovery(asthmaTruth, claims)).toEqual({ total: 1, recovered: 0 })
+  })
+
   it('counts a sim-record claim, which has no quote to verify', () => {
     const claims = [asthmaClaim({ kind: 'sim-record', id: 'cond-1', quote: 'Asthma' })]
 

@@ -5,10 +5,15 @@
  * never asked to write a document, and it never sees clinical content it
  * could elaborate on beyond translating what is already there. See
  * docs/adr/0010-degrader-is-template-driven.md.
+ *
+ * The model is the one named in `convex/lib/model.ts`, the same one extraction
+ * runs on, rather than the cheap model this call used to name inline. The two
+ * halves of the demo sharing a model means one line moves both.
  */
 
+import { MODEL } from './model'
+
 const OPENAI_ORIGIN = 'https://api.openai.com'
-const MODEL = 'gpt-4o-mini'
 
 function apiKey(): string {
   const value = process.env.OPENAI_API_KEY
@@ -30,7 +35,13 @@ export async function translateLines(lines: string[], language: string): Promise
       headers: { Authorization: `Bearer ${apiKey()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
-        temperature: 0,
+        /**
+         * No `temperature`. The model is a reasoning model, and Chat
+         * Completions rejects any value but the default for it with a 400. The
+         * fallback below turns a 400 into English lines and a line in the log,
+         * so sending the old `temperature: 0` would have shown up as a demo
+         * that quietly stopped translating rather than as an error.
+         */
         response_format: { type: 'json_object' },
         messages: [
           {

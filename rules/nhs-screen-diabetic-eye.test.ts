@@ -44,6 +44,7 @@ function profile(ageYears: number, conditions: ProfileFact[]): PatientProfile {
     conditions,
     medications: [],
     allergies: [],
+    familyHistory: [],
     immunisations: [],
   }
 }

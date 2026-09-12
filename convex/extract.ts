@@ -1,7 +1,7 @@
 'use node'
 
 import { v } from 'convex/values'
-import { Agent, getDefaultModel, run as runAgent, setDefaultOpenAIKey } from '@openai/agents'
+import { Agent, run as runAgent, setDefaultOpenAIKey } from '@openai/agents'
 import { action } from './_generated/server'
 import type { ActionCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
@@ -9,6 +9,13 @@ import { internal } from './_generated/api'
 import { anchor } from './lib/anchor'
 import { bucketFor } from './lib/confidence'
 import { EXTRACTION_AGENTS, claimKindFor, type ExtractionAgent } from './lib/agents'
+import { MODEL as DEFAULT_MODEL } from './lib/model'
+/*
+ * One definition of "one retry and no more", one clip limit, and one RunRecord,
+ * shared with convex/callExtract.ts. Two copies of a retry policy drift and the
+ * agent-runs sheet then shows two kinds of row. See ADR 19.
+ */
+import { clip, messageOf, record, spendOf, withRetry, type RunRecord } from './lib/agentRun'
 import type { ClaimKind, Confidence } from '../src/types'
 
 /**
@@ -41,9 +48,12 @@ import type { ClaimKind, Confidence } from '../src/types'
  * recorded run can say which model produced it. An `Agent` built without
  * `model` runs on whatever the installed SDK version defaults to, which a
  * dependency bump changes with no line of this repo changing, and a transcript
- * that cannot name its model answers the wrong half of the question.
+ * that cannot name its model answers the wrong half of the question. The
+ * fallback is `convex/lib/model.ts` and not `getDefaultModel()` for the same
+ * reason: the SDK's default is a fact about the dependency, not a decision of
+ * this repo.
  */
-const MODEL = process.env.EXTRACTION_MODEL ?? getDefaultModel()
+const MODEL = process.env.EXTRACTION_MODEL ?? DEFAULT_MODEL
 
 const summary = v.object({
   /** True when stored document claims were reused and no model call was made. */
@@ -179,100 +189,6 @@ function toDraft(
 /* The fan-out.                                                                 */
 /* -------------------------------------------------------------------------- */
 
-function messageOf(error: unknown): string {
-  return (error instanceof Error ? error.message : String(error)).slice(0, 500)
-}
-
-/* -------------------------------------------------------------------------- */
-/* Recording the call.                                                          */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Convex caps a document at 1MB and a recorded run holds three strings, the
- * longest of which is a document the degrader wrote. Clipping says so in the
- * text: a transcript that quietly lost its tail is worse than one that admits
- * where it stops.
- */
-const LIMIT = 24_000
-
-function clip(value: string): string {
-  if (value.length <= LIMIT) return value
-  return `${value.slice(0, LIMIT)}\n[clipped at ${LIMIT} characters]`
-}
-
-/** The fields of one recorded run, as convex/extractDb.ts stores them. */
-interface RunRecord {
-  patientId: Id<'patients'>
-  documentId: Id<'documents'>
-  agent: string
-  model: string
-  attempts: number
-  durationMs: number
-  instructions: string
-  input: string
-  output?: string
-  items?: number
-  responseId?: string
-  inputTokens?: number
-  outputTokens?: number
-  error?: string
-}
-
-/**
- * What the run cost, summed across turns. An agent with no tools and no handoff
- * takes exactly one, so the sum is a formality that stays correct if either
- * changes. Absent fields mean the SDK reported none, which is not the same as
- * zero and should not be shown as it.
- */
-function spendOf(
-  responses: readonly {
-    usage?: { inputTokens?: number; outputTokens?: number }
-    responseId?: string
-  }[],
-): { responseId?: string; inputTokens?: number; outputTokens?: number } {
-  if (responses.length === 0) return {}
-  const inputTokens = responses.reduce((total, r) => total + (r.usage?.inputTokens ?? 0), 0)
-  const outputTokens = responses.reduce((total, r) => total + (r.usage?.outputTokens ?? 0), 0)
-  /** The last turn's id: the one the dashboard trace opens on. */
-  const responseId = responses[responses.length - 1]?.responseId
-
-  return {
-    ...(responseId ? { responseId } : {}),
-    ...(inputTokens ? { inputTokens } : {}),
-    ...(outputTokens ? { outputTokens } : {}),
-  }
-}
-
-/**
- * Writes one transcript, and swallows its own failure.
- *
- * Deliberate: recording sits beside extraction rather than inside it, so a
- * write that fails cannot demote a call that returned claims into a call the
- * patient row reports as failed. The console line is the fallback, and the
- * missing row is visible as a gap in a sheet that shows sixteen.
- */
-async function record(ctx: ActionCtx, run: RunRecord): Promise<void> {
-  try {
-    await ctx.runMutation(internal.extractDb.recordRun, run)
-  } catch (error) {
-    console.error(`[extract] could not record ${run.agent} on ${run.documentId}: ${messageOf(error)}`)
-  }
-}
-
-/**
- * One retry, and no more. A third attempt buys little against a model that has
- * refused twice, and costs the demo the latency it can least afford.
- *
- * The attempt count comes back with the value because the recorded run should
- * be able to say whether the first call held. See ADR 19.
- */
-async function withRetry<T>(attempt: () => Promise<T>): Promise<{ result: T; attempts: number }> {
-  try {
-    return { result: await attempt(), attempts: 1 }
-  } catch {
-    return { result: await attempt(), attempts: 2 }
-  }
-}
 
 /**
  * One agent over one document. Never throws: a failed call contributes no

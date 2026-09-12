@@ -20,7 +20,8 @@ import type { EmittedOutcome, NewGap, NewRecommendation, PatientProfile } from '
  * ADR 12 forbids curating the patient, so a pack that is clinically correct and
  * fires nothing on a 34-year-old with hypertension is a dead demo. Two rules
  * fire on every patient by construction, and this file is what keeps that true
- * as the pack changes.
+ * as the pack changes. Which two changed with #33, when the always-on
+ * orientation rule was deleted; the invariant did not.
  *
  * Every assertion is on the outcomes the pack returned. Nothing here touches the
  * network, Convex or a model.
@@ -51,7 +52,17 @@ describe('the pack over a spread of patients', () => {
   it('fires both always-on rules for every patient in the spread, whatever the record holds', () => {
     // The two that carry a thin patient. Coverage above would still pass if one
     // of them stopped firing and a screening rule happened to cover the row.
-    const alwaysOn = ['ukhsa-imm-primary-course', 'ukhsa-new-arrival-orientation']
+    //
+    // `ukhsa-new-arrival-orientation` used to be the second of these: it fired
+    // on every patient and was deleted with #33, which drops the guarantee it
+    // carried. The replacement is not a weaker assertion but a different rule,
+    // and a clinical one. `nhs-general-history` always emits its social history
+    // gap, because no ClaimKind carries smoking, alcohol, occupation or carer
+    // status and so nothing in a record can ever answer it. That is stronger
+    // than what orientation gave us: the row a thin record now produces is a
+    // question a clinician wanted answered, rather than a non-clinical task
+    // whose only job was to occupy the screen. See ADR 12.
+    const alwaysOn = ['ukhsa-imm-primary-course', 'nhs-general-history']
 
     for (const [index, spread] of SPREAD.entries()) {
       const fired = new Set(applyRules(profileFor(spread, index), pack).map((o) => o.ruleId))
@@ -150,9 +161,11 @@ describe('the bucket a pack recommendation inherits', () => {
   })
 
   it('falls back to the rule floor when the record holds nothing to consume', () => {
-    // The thin patient ADR 12 licenses. "We believe you have had no vaccines" is
-    // a conversation, not a draft, so the plan stops at patient-reported while
-    // orientation, which rests on nothing at all, stays evidenced.
+    // The thin patient ADR 12 licenses. Both recommendations here rest on no
+    // claim, and the floors differ because the grounds differ: "we believe you
+    // have had no vaccines" is a conversation rather than a draft, so the plan
+    // stops at patient-reported, while the hepatitis B gate rests on a country
+    // an operator wrote down at onboarding and so earns the evidenced floor.
     const thin = profileFrom({ birthDate: '1992-01-10', country: 'BD' })
     const byKey = new Map(
       applyRules(thin, pack)
@@ -161,7 +174,7 @@ describe('the bucket a pack recommendation inherits', () => {
     )
 
     assert.equal(byKey.get('ukhsa-imm-primary-course:plan'), 'patient-reported')
-    assert.equal(byKey.get('ukhsa-new-arrival-orientation:entitlements'), 'document-evidenced')
+    assert.equal(byKey.get('ukhsa-country-hepb:serology'), 'document-evidenced')
   })
 })
 
@@ -169,8 +182,8 @@ describe('an outcome resting on the synthesised vaccination card', () => {
   /**
    * A 67-year-old from Ukraine whose only immunisation source is the card ADR 8
    * lets the degrader generate. Bowel screening rests on the sim's own
-   * birthDate and orientation on nothing, so one profile shows both halves of
-   * the propagation rule.
+   * birthDate and the allergy question on an empty allergy list, so one profile
+   * shows both halves of the propagation rule.
    */
   const cardOnly = profileFrom({
     birthDate: '1959-06-06',
@@ -205,15 +218,19 @@ describe('an outcome resting on the synthesised vaccination card', () => {
     assert.deepEqual(
       {
         bowel: labels.get('nhs-screen-bowel:invite'),
-        orientation: labels.get('ukhsa-new-arrival-orientation:entitlements'),
+        allergies: labels.get('nhs-ask-allergies:any'),
       },
-      { bowel: false, orientation: false },
+      { bowel: false, allergies: false },
     )
   })
 })
 
 describe('a re-run of the pack on an unchanged profile', () => {
-  /** The 34-year-old with a record and a card, which reaches six of the pack's keys. */
+  /**
+   * The 34-year-old with a record and a card. The record states a condition and
+   * nothing else, so the history gaps fire per section: pmh closes on the
+   * condition, dh, fh and sh stay open.
+   */
   const spec = {
     patientId: 'SIM-000042',
     birthDate: '1992-01-10',
@@ -231,13 +248,17 @@ describe('a re-run of the pack on an unchanged profile', () => {
    * orphans the clinician's approved or dismissed rows.
    */
   const EXPECTED_KEYS = [
+    'nhs-ask-allergies:any',
+    'nhs-establish-sex:sex',
+    'nhs-general-history:dh',
+    'nhs-general-history:fh',
+    'nhs-general-history:sh',
     'nhs-record-condition:type2diabetesmellitus',
     'nhs-screen-diabetic-eye:invite',
     'ukhsa-country-hepb:serology',
     'ukhsa-imm-mmr-under-12-months:top-up',
     'ukhsa-imm-primary-course:card',
     'ukhsa-imm-primary-course:plan',
-    'ukhsa-new-arrival-orientation:entitlements',
   ]
 
   const keysOf = (profile: PatientProfile) =>

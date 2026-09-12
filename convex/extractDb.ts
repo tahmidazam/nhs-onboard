@@ -110,7 +110,13 @@ export const begin = internalMutation({
       .query('agentRuns')
       .withIndex('by_patient', (q) => q.eq('patientId', patientId))
       .collect()
-    for (const run of stale) await ctx.db.delete(run._id)
+    // Scoped to document runs. A re-extraction replaces what reading the
+    // documents produced, and the transcript claims survive it, so erasing the
+    // transcript's run record too would leave the sheet describing only half
+    // the calls behind the claims on screen. See ADR 19 and ADR 22.
+    for (const run of stale) {
+      if (run.callId === undefined) await ctx.db.delete(run._id)
+    }
     await ctx.db.patch(patientId, { stage: 'extracting', extractionFailures: undefined })
     return null
   },
@@ -235,7 +241,10 @@ export const runsForPatient = query({
 
     return await Promise.all(
       runs.map(async (run) => {
-        const document = await ctx.db.get(run.documentId)
+        // Absent on a transcript run, which was handed a call rather than a
+        // document, so the sheet renders it without a document heading.
+        const document =
+          run.documentId === undefined ? null : await ctx.db.get('documents', run.documentId)
         return {
           ...run,
           ...(document ? { documentKind: document.kind, documentLanguage: document.language } : {}),

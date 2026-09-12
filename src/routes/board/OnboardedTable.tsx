@@ -68,7 +68,7 @@ const staticColumns = columnHelper.columns([
     ),
     cell: ({ row, getValue }) => (
       <Link
-        to="/patient/$id"
+        to="/ops/patient/$id"
         params={{ id: row.original._id }}
         className="font-medium underline-offset-4 hover:underline"
       >
@@ -102,14 +102,14 @@ const staticColumns = columnHelper.columns([
         <Button
           variant="outline"
           size="sm"
-          render={<Link to="/patient/$id" params={{ id: row.original._id }} />}
+          render={<Link to="/ops/patient/$id" params={{ id: row.original._id }} />}
         >
           Documents
         </Button>
         <Button
           variant="outline"
           size="sm"
-          render={<Link to="/patient/$id/review" params={{ id: row.original._id }} />}
+          render={<Link to="/patient/$id" params={{ id: row.original._id }} />}
         >
           Review
         </Button>

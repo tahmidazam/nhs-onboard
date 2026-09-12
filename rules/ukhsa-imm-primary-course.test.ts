@@ -38,6 +38,7 @@ function profile(over: Partial<PatientProfile> = {}): PatientProfile {
     conditions: [],
     medications: [],
     allergies: [],
+    familyHistory: [],
     immunisations: [],
     ...over,
   }

@@ -13,6 +13,13 @@ export interface ProfilePatient {
   birthDate: string
   /** ISO 3166-1 alpha-2, supplied at onboarding. See ADR 9. */
   country: string
+  /**
+   * From `patients.sex`, itself read out of the sim's narrative pronouns or
+   * settled by the call. Only the value travels: a rule gates on this and
+   * never consumes it, so the bucket and source stay on the patient row where
+   * the header reads them. See ADR 20.
+   */
+  sex?: 'male' | 'female'
 }
 
 /** Whole months elapsed, calendar-correct, so an age never depends on month length. */
@@ -128,13 +135,14 @@ export function buildProfile(
     asOf,
     ageYears: Math.floor(ageMonths / 12),
     ageMonths,
-    // sex is deliberately left off: the sim carries none, in neither the patient
-    // item nor the FHIR projection. A rule needing it emits a Gap.
+    // Omitted rather than undefined when absent, so a profile for a patient
+    // whose sex nothing has established reads the same as it always did.
+    ...(patient.sex === undefined ? {} : { sex: patient.sex }),
     country: patient.country,
     conditions: factsOfKind('condition'),
     medications: factsOfKind('medication'),
     allergies: factsOfKind('allergy'),
-    // 'family-history' has no slot on the profile: no rule in the pack reads it.
+    familyHistory: factsOfKind('family-history'),
     immunisations: claims
       .filter((c) => c.kind === 'immunisation')
       .map((c) => toImmunisationFact(c, patient.birthDate, synthesisedDocIds)),

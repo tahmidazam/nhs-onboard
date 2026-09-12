@@ -27,7 +27,8 @@ Use these terms exactly. Do not drift to synonyms.
 | **SourceRef** | Where a claim came from, with the verbatim quote. This is what "evidenced" means. |
 | **Confidence** | One of three buckets, never a number. |
 | **MedicationMapping** | Output of the deterministic brand lookup. |
-| **Gap** | Something only the patient can answer. Also the voice agent's goal. |
+| **Gap** | Something only the patient can answer. Also the voice agent's goal. Open, answered, or unanswered, where unanswered means asked on the call and not established. |
+| **Silo** | A group of Recommendations on the clinician screen, by clinical action type. Prescriptions, referrals, screening, immunisations, tests, and one for what only lands on the record. |
 | **Recommendation** | A proposed action with its evidence chain and its destination in the sim. |
 | **Rule** | One hand-encoded piece of guidance: declarative metadata plus an `evaluate` function. |
 | **RulePack** | The ordered set of Rules the engine runs. |
@@ -68,6 +69,9 @@ Rationale lives in `docs/adr/`. Read the ADR before changing behaviour it covers
 | [17](docs/adr/0017-quotes-are-anchored-by-containment.md) | Quotes are anchored by containment. An unanchored claim is demoted, not dropped. |
 | [18](docs/adr/0018-translation-sits-in-the-recovery-path.md) | Translation sits in the recovery path. Matching does not. |
 | [19](docs/adr/0019-model-calls-are-recorded-in-convex.md) | Model calls are recorded in Convex. The dashboard trace is the second copy. |
+| [20](docs/adr/0020-sex-is-read-from-sim-pronouns.md) | Sex is read from the sim's own narrative pronouns, or settled by the call. |
+| [21](docs/adr/0021-two-shells-clinician-and-operator.md) | Two shells. The clinician screen silos by action type and flags the bucket per row. |
+| [22](docs/adr/0022-the-call-answers-gaps.md) | The call answers gaps. The transcript becomes patient-reported claims. |
 
 ## Data sources
 
@@ -110,23 +114,39 @@ which contains no occurrence of `sex` or `gender`. A patient item holds `id`,
 
 Gendered pronouns do appear in narrative text, in `observation.text` and
 `encounter.text`, consistently per patient and for some patients only: 16 female
-pronouns on SIM-000001, 14 male on SIM-000002, none at all on SIM-000015. Our
-pipeline never sees them. `patients.truth` freezes conditions, medications,
-allergies and immunisations, and ADR 10's degrader assembles every document from
-that snapshot, so narrative prose does not reach a PresentedDocument and cannot
-reach a Claim.
+pronouns on SIM-000001, 14 male on SIM-000002, none at all on SIM-000015.
 
-Reading sex out of those pronouns would also be name inference with extra steps,
-since the sim generates both from one seed, and ADR 9 rejects inferring origin
-from a name for reasons that apply here unchanged.
+ADR 20 reads sex out of those pronouns at onboarding, by regex, storing it on
+`patients.sex` with the narrative sentence as its quote and `sim-record` as its
+source, which the confidence table already grades `document-evidenced`. A
+patient with no pronouns, or with both, gets nothing, and
+`rules/nhs-establish-sex.ts` emits a Gap the call settles as `patient-reported`.
 
-So cervical, breast and AAA screening are sex-gated with nothing to read. They
-emit a Gap for the call rather than a Recommendation, and none of them is in the
-shipped pack. We do not synthesise sex: ADR 8 synthesises immunisations because
-the alternative was abandoning catch-up entirely, and here the alternative is a
-question on a call we are already making. The other route, if those three
-programmes are ever wanted in the demo, is an operator-supplied sex control at
-onboarding beside the country control, which ADR 9's reasoning already licenses.
+This section previously said we would not do that, on the grounds that it is
+name inference with extra steps, since the sim generates name and pronouns from
+one seed. ADR 20 records the reversal and its reasoning: ADR 9's hazard is
+inferring origin, ethnicity or language from a name, and an explicit pronoun in
+a clinical document is instead how a GP actually learns a patient's sex from a
+foreign record. The residual cost stands and is worth stating: inside the
+simulator that quote is evidence of what the record says, not independent
+evidence of the patient.
+
+Sex is a gate and never evidence, the way `country` is under ADR 9 and ADR 15.
+A rule may read it to decide and must never put it in `consumed`, so no
+recommendation rests on it and none inherits its bucket.
+
+Cervical, breast and AAA screening remain sex-gated and remain out of the
+shipped pack. Sex reaches the SBAR header on the clinician screen and stops
+there. Shipping those three is a separate piece of work, and the reason to hold
+them back is no longer that sex is unavailable.
+
+A transcript agent that fails gets an `agentRuns` row carrying its error and a
+console line, and no entry in `patients.extractionFailures`, so the operator
+board shows no badge for it. That array is keyed by `documentId` and a
+transcript has none; widening it was considered and declined, because the array
+is cleared at the start of every document-extraction run, so a failure recorded
+after a call would be wiped by the next re-extraction. The run sheet is the
+record. See ADR 19 and ADR 22.
 
 The rule pack covers six programmes. Not covered: cervical, breast, AAA,
 newborn blood spot, newborn hearing, NIPE, antenatal and newborn sickle cell,

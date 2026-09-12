@@ -65,6 +65,13 @@ export const getPatient = internalQuery({
         immunisations: v.array(v.string()),
       }),
       degradation: v.optional(v.object({ severity: v.number(), translate: v.boolean() })),
+      /**
+       * The value only, not the whole `patients.sex` object: the degrader
+       * needs a pronoun and has no use for the provenance. Absent where the
+       * sim wrote no pronoun for this patient, and then the letter carries
+       * none either. See ADR 20.
+       */
+      sex: v.optional(v.union(v.literal('male'), v.literal('female'))),
     }),
   ),
   handler: async (ctx, { patientId }) => {
@@ -77,6 +84,7 @@ export const getPatient = internalQuery({
       country: patient.country,
       truth: patient.truth,
       degradation: patient.degradation,
+      sex: patient.sex?.value,
     }
   },
 })
@@ -145,8 +153,21 @@ export const degrade = action({
     const effectiveSeverity = severity ?? patient.degradation?.severity ?? DEFAULT_SEVERITY
     const effectiveTranslate = translate ?? patient.degradation?.translate ?? true
 
-    /** Seeded from the sim id, so the same patient degrades identically every run. */
-    const { documents } = degradeRecord(record, patient.country, patient.simId, scaleLoss(effectiveSeverity))
+    /**
+     * Seeded from the sim id, so the same patient degrades identically every
+     * run. `sex` changes the wording of the clinic letter and nothing else: it
+     * consumes no draw, so passing it moved no existing patient's document.
+     * ADR 20 established it at onboarding from the sim's own narrative, which
+     * is why a letter about Fatima Begum says "she" and never disagrees with
+     * the name above it.
+     */
+    const { documents } = degradeRecord(
+      record,
+      patient.country,
+      patient.simId,
+      scaleLoss(effectiveSeverity),
+      patient.sex,
+    )
 
     /**
      * The sim carries no immunisation data (ADR 8), so every onboarded patient

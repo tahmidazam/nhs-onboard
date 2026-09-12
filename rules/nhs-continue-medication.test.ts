@@ -32,6 +32,7 @@ function taking(medications: ProfileFact[]): PatientProfile {
     conditions: [],
     medications,
     allergies: [],
+    familyHistory: [],
     immunisations: [],
   }
 }

@@ -60,8 +60,13 @@ export interface PatientProfile {
   ageYears: number
   ageMonths: number
   /**
-   * Always absent: the sim carries no sex, in neither the patient item nor the
-   * FHIR projection. A rule needing it emits a Gap. See CONTEXT.md known gaps.
+   * Populated from `patients.sex`, which ADR 20 reads out of the gendered
+   * pronouns in the sim's narrative text at onboarding. Still optional: a
+   * patient whose narrative carries no pronoun, or both, has none until a call
+   * settles it, and `nhs-establish-sex` emits a Gap for exactly that case.
+   *
+   * A rule may read this to decide, but must never put it in `consumed`: it is
+   * a gate, not evidence, the way `country` is. See ADR 20 and CONTEXT.md.
    */
   sex?: 'male' | 'female'
   /** ISO 3166-1 alpha-2, supplied at onboarding. See ADR 9. */
@@ -69,6 +74,8 @@ export interface PatientProfile {
   conditions: ProfileFact[]
   medications: ProfileFact[]
   allergies: ProfileFact[]
+  /** Read by `nhs-general-history` to tell a thin record from a full one. */
+  familyHistory: ProfileFact[]
   immunisations: ImmunisationFact[]
 }
 
@@ -124,7 +131,17 @@ export interface Rule {
 export type RulePack = readonly Rule[]
 
 export type NewRecommendation = Omit<Recommendation, 'id' | 'patientId' | 'status' | 'simResourceId'>
-export type NewGap = Omit<Gap, 'id' | 'patientId' | 'status' | 'answer'>
+/**
+ * A rule asks the question. It never carries the answer, the quote behind it,
+ * or the call that produced either: those are written by `convex/call.ts` after
+ * the call, and a re-run of the pack must not offer to overwrite them. Omitting
+ * them here is what makes the reconciliation in `convex/rules.ts` safe to patch
+ * a still-emitted row with. See ADR 22.
+ */
+export type NewGap = Omit<
+  Gap,
+  'id' | 'patientId' | 'status' | 'answer' | 'answerQuote' | 'answeredByCallId'
+>
 
 /** Assembled by the engine from a RuleOutcome and its rule's metadata. */
 export type EmittedOutcome =

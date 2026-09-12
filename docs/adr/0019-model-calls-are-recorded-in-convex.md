@@ -36,9 +36,14 @@ as sent, the structured output as returned, the model, the attempt count, the
 duration, the token counts, and the OpenAI response id. A call that fails twice
 writes the same row with its error in place of the output.
 
-The model name is resolved in `convex/extract.ts` with `getDefaultModel()` and
-passed to the agent explicitly, so the recorded name is what ran rather than an
-inference about what the SDK would have picked.
+The model name is pinned in `convex/lib/model.ts` and passed to the agent
+explicitly, so the recorded name is what ran rather than an inference about what
+the SDK would have picked. It was first read from the SDK with
+`getDefaultModel()`, which named the right model but left the choice owned by
+the dependency; the pin moves ownership back to this repo, and
+`EXTRACTION_MODEL` still overrides it per deployment. The degrader's translation
+call in `convex/lib/degradeTranslate.ts` reads the same constant, so the two
+stages that call a model cannot drift apart.
 
 Recording sits beside extraction, not inside it. The write is wrapped so that a
 failed transcript cannot demote a call that returned claims into a failed one.
@@ -49,9 +54,12 @@ claims on screen.
 
 ## Consequences
 
-Sixteen rows per patient, each holding a prompt and a document. Both are
-clipped at 24,000 characters against Convex's 1MB document cap, and the clip
-says so in the text.
+Sixteen rows per patient from reading the documents, plus two per call once
+[ADR 22](0022-the-call-answers-gaps.md) added a claim reader and an answer
+reader over the transcript. Each row holds a prompt and the text it was handed.
+Both are clipped at 24,000 characters against Convex's 1MB document cap, and the
+clip says so in the text. A transcript row carries `callId` and no `documentId`,
+which is also what keeps a re-extraction from erasing it.
 
 Sixteen extra writes per run, each a small mutation issued off the call's
 critical path. Extraction's latency is dominated by the model, so the cost does

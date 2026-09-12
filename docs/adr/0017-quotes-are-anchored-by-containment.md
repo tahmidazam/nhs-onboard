@@ -72,6 +72,9 @@ mode arriving at the metric.
 `verified` is optional and additive, so the onboarding and rule pack branches
 take it without a change to either.
 
-The predicate lives at `matchRecovery`'s call site, because that function belongs
-to a branch in flight. It moves inside the function once the branches merge, so
-the invariant ends up with the metric rather than with its caller.
+The predicate now lives inside `convex/lib/matchRecovery.ts`, where the branches
+merged, so the invariant sits with the metric rather than with its caller.
+[ADR 22](0022-the-call-answers-gaps.md) tightened it: a transcript claim used to
+be admitted unconditionally, which let a quote taken from the assistant's own
+readback score as a recovered fact. A document claim requires `verified === true`
+and every other kind is admitted unless `verified === false`.

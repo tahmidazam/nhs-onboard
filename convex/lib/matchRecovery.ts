@@ -11,13 +11,25 @@ export type Truth = Pick<PatientRecord, 'conditions' | 'medications' | 'allergie
 export type MatchableClaim = Pick<Claim, 'kind' | 'verbatim' | 'resolved' | 'mapping' | 'source'>
 
 /**
- * True when a claim may count towards the numerator. A `document` claim counts
- * only once its quote has anchored by containment; `transcript` and `sim-record`
- * claims have no quote to verify and carry no `verified` field at all, so they
- * are admitted unconditionally. See ADR 17.
+ * True when a claim may count towards the numerator. See ADR 17.
+ *
+ * A `document` claim counts only once its quote has anchored by containment, so
+ * the absence of a verdict is a failure: nothing checked it.
+ *
+ * Every other kind is admitted unless something checked it and said no. That
+ * asymmetry is deliberate. `sim-record` claims carry no quote and no `verified`
+ * field, and so do the transcript claims written before the call read anything.
+ * But a transcript claim now carries a verdict too: convex/callExtract.ts
+ * anchors its quote against the patient's own turns, and a quote lifted from
+ * the assistant's mouth fails. The assistant reads every drug name and dose
+ * back out loud twice under the verification ladder, so a claim quoted from a
+ * readback is our own guess laundered into the record, which is ADR 17's stated
+ * failure mode arriving by voice. It is kept and shown, per ADR 3, and it does
+ * not score. See ADR 22.
  */
 export function isAnchored(claim: MatchableClaim): boolean {
-  return claim.source.kind !== 'document' || claim.source.verified === true
+  if (claim.source.kind === 'document') return claim.source.verified === true
+  return claim.source.verified !== false
 }
 
 /** Lowercases and strips non-alphanumerics. Shares its rule with `normaliseBrand`. */

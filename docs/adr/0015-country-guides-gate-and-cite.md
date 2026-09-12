@@ -45,10 +45,15 @@ something we cannot explain on stage and something that changes under us. A
 committed list is a diff.
 
 One of the guide sections appears on all 135 countries: the advice to explain how
-the NHS works and a new arrival's entitlements. That makes it available as a
-rule that fires on every patient regardless of record contents, which ADR 12
-needs, because nothing filters candidates and a judge may nominate a 34-year-old
-with one condition and no eligibility for anything.
+the NHS works and a new arrival's entitlements. That made it available as a rule
+firing on every patient regardless of record contents, which is what
+`ukhsa-new-arrival-orientation` was.
+[ADR 21](0021-two-shells-clinician-and-operator.md) deleted that rule: an
+orientation booking is not clinical, and a GP screen is the wrong place for it.
+The guide section is still cited where it gates a rule; it no longer carries one
+of its own. What keeps a thin record from producing an empty screen is now the
+record-condition, record-allergy and primary-immunisation rules, plus the gaps
+the call exists to close, which is the reading ADR 12's own consequences take.
 
 The committed lists go stale if UKHSA revises a guide, and nothing detects it.
 The script is the remedy; re-run it.

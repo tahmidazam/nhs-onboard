@@ -29,6 +29,7 @@ function from(country: string): PatientProfile {
     conditions: [],
     medications: [],
     allergies: [],
+    familyHistory: [],
     immunisations: [],
   }
 }
