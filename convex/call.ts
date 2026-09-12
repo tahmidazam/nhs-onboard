@@ -250,6 +250,17 @@ export const place = action({
     if (!dial) {
       throw new Error('No number to call. Set DEMO_PHONE_NUMBER with `npx convex env set`.')
     }
+    /**
+     * Vapi rejects anything that is not E.164, and a UK number written the way
+     * people say it out loud is the common mistake.
+     */
+    if (!/^\+[1-9]\d{7,14}$/.test(dial)) {
+      throw new Error(
+        `DEMO_PHONE_NUMBER is "${dial}", which Vapi will reject. It needs the international ` +
+          'form: drop the leading zero and put the country code on, so 07700 900000 becomes ' +
+          '+447700900000.',
+      )
+    }
 
     const gaps = await ctx.runQuery(internal.call.openGaps, { patientId })
     const context = await ctx.runQuery(api.call.callContext, { patientId })
