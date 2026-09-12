@@ -26,6 +26,8 @@ export interface TranscriptLine {
 interface StartOptions {
   goals: string[]
   patientName: string
+  patientAge: number
+  patientDob: string
 }
 
 interface UseVapiCallOptions {
@@ -95,7 +97,8 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
    * customerJoinTimeoutSeconds is assistant-level config, so it belongs in the
    * dashboard. It defaults to 15, which is short for conference wifi.
    */
-  const start = useCallback(async ({ goals, patientName }: StartOptions) => {
+  const start = useCallback(
+    async ({ goals, patientName, patientAge, patientDob }: StartOptions) => {
     const assistantId = import.meta.env.VITE_VAPI_ASSISTANT_ID as string | undefined
     if (!assistantId) {
       setProblem('VITE_VAPI_ASSISTANT_ID is not set.')
@@ -124,7 +127,9 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
       setStatus('failed')
       setProblem(e instanceof Error ? e.message : 'The call could not start.')
     }
-  }, [onStarted])
+    },
+    [onStarted],
+  )
 
   const stop = useCallback(() => vapiRef.current?.stop(), [])
 

@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
-import { internal } from './_generated/api'
+import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 
 /**
@@ -27,20 +27,47 @@ export const openGaps = internalQuery({
   },
 })
 
-/** The open gap questions for a patient, for the browser call path. */
-export const openQuestions = query({
+/** Whole number of years at the sim's current date. */
+function ageFrom(birthDate: string, now: number): number {
+  const born = new Date(birthDate)
+  const today = new Date(now)
+  let age = today.getUTCFullYear() - born.getUTCFullYear()
+  const month = today.getUTCMonth() - born.getUTCMonth()
+  if (month < 0 || (month === 0 && today.getUTCDate() < born.getUTCDate())) age--
+  return age
+}
+
+/**
+ * Everything the assistant's prompt reads as variables. One source, so the
+ * phone and browser paths cannot drift apart.
+ */
+export const callContext = query({
   args: { patientId: v.id('patients') },
-  returns: v.array(v.string()),
+  returns: v.union(
+    v.null(),
+    v.object({
+      patientName: v.string(),
+      patientAge: v.number(),
+      patientDob: v.string(),
+      goals: v.array(v.string()),
+    }),
+  ),
   handler: async (ctx, { patientId }) => {
+    const patient = await ctx.db.get(patientId)
+    if (!patient) return null
     const gaps = await ctx.db
       .query('gaps')
       .withIndex('by_patient', (q) => q.eq('patientId', patientId))
       .collect()
-    return gaps.filter((g) => g.status === 'open').map((g) => g.question)
+    return {
+      patientName: patient.name,
+      patientAge: ageFrom(patient.birthDate, Date.now()),
+      patientDob: patient.birthDate,
+      goals: gaps.filter((g) => g.status === 'open').map((g) => g.question),
+    }
   },
 })
 
-/** The patient's most recent call, so the shell can show what was said. */
 export const latestCall = query({
   args: { patientId: v.id('patients') },
   returns: v.union(
@@ -225,6 +252,9 @@ export const place = action({
     }
 
     const gaps = await ctx.runQuery(internal.call.openGaps, { patientId })
+    const context = await ctx.runQuery(api.call.callContext, { patientId })
+    if (!context) throw new Error('That patient does not exist.')
+
     const callId = await ctx.runMutation(internal.call.create, {
       patientId,
       language,
@@ -240,9 +270,14 @@ export const place = action({
         phoneNumberId,
         customer: { number: dial },
         assistantOverrides: {
-          /** The dashboard prompt reads {{goals}}. Keep the placeholder in step with it. */
+          /** Names here must match the placeholders in the dashboard prompt. */
           variableValues: {
-            goals: gaps.map((g, i) => `${i + 1}. ${g.question}`).join('\n') || 'No open questions.',
+            patientName: context.patientName,
+            patientAge: String(context.patientAge),
+            patientDob: context.patientDob,
+            goals:
+              context.goals.map((q, i) => `${i + 1}. ${q}`).join('\n') ||
+              'Nothing specific is outstanding. Work the call plan.',
           },
         },
       }),

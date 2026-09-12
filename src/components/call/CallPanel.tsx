@@ -10,6 +10,8 @@ import { useVapiCall } from './useVapiCall'
 
 interface CallPanelProps {
   patientName: string
+  patientAge: number
+  patientDob: string
   /** Gap questions. Passed to the assistant as {{goals}}. */
   goals: string[]
   /**
@@ -39,7 +41,13 @@ function languageName(tag: string): string {
   }
 }
 
-export function CallPanel({ patientName, goals, onCallStarted }: CallPanelProps) {
+export function CallPanel({
+  patientName,
+  patientAge,
+  patientDob,
+  goals,
+  onCallStarted,
+}: CallPanelProps) {
   const { status, transcript, language, problem, start, stop } = useVapiCall({
     onStarted: onCallStarted,
   })
@@ -53,7 +61,7 @@ export function CallPanel({ patientName, goals, onCallStarted }: CallPanelProps)
             End call
           </Button>
         ) : (
-          <Button onClick={() => start({ goals, patientName })}>Call {patientName}</Button>
+          <Button onClick={() => start({ goals, patientName, patientAge, patientDob })}>Call {patientName}</Button>
         )}
         <span className="text-sm text-muted-foreground">{STATUS_COPY[status]}</span>
         {language ? (

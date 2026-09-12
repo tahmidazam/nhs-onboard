@@ -14,10 +14,7 @@ import { StoredTranscript } from '@/components/call/StoredTranscript'
 export default function App() {
   const patient = useQuery(api.dev.demoPatient)
   const seed = useMutation(api.dev.seedDemoPatient)
-  const questions = useQuery(
-    api.call.openQuestions,
-    patient ? { patientId: patient._id } : 'skip',
-  )
+  const context = useQuery(api.call.callContext, patient ? { patientId: patient._id } : 'skip')
   const register = useMutation(api.call.register)
 
   return (
@@ -44,10 +41,12 @@ export default function App() {
         </>
       ) : (
         <>
-          <PhoneCallForm patientId={patient._id} questionCount={(questions ?? []).length} />
+          <PhoneCallForm patientId={patient._id} questionCount={context?.goals.length ?? 0} />
           <CallPanel
-            patientName={patient.name}
-            goals={questions ?? []}
+            patientName={context?.patientName ?? patient.name}
+            patientAge={context?.patientAge ?? 0}
+            patientDob={context?.patientDob ?? ''}
+            goals={context?.goals ?? []}
             onCallStarted={async (vapiCallId) => {
               await register({ patientId: patient._id, vapiCallId })
             }}
