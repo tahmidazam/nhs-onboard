@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from 'convex/react'
+import { useQuery } from 'convex/react'
 import { api } from '../../../convex/_generated/api'
 import type { Id } from '../../../convex/_generated/dataModel'
 import {
@@ -9,8 +9,6 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatTurns } from '@/lib/transcript'
-import { CallPanel } from './CallPanel'
 import { PhoneCallForm } from './PhoneCallForm'
 import { StoredTranscript } from './StoredTranscript'
 
@@ -22,15 +20,13 @@ interface CallSheetProps {
 }
 
 /**
- * Both call paths for one patient, opened from the board's call column.
+ * One patient's call, opened from the board's call column.
  * The questions come from the patient's open gaps, so the call asks what the
  * records could not answer.
  */
 export function CallSheet({ patientId, patientName, open, onOpenChange }: CallSheetProps) {
   /** Nothing is read until the sheet opens, so the board does not fan out a query per row. */
   const context = useQuery(api.call.callContext, open ? { patientId } : 'skip')
-  const register = useMutation(api.call.register)
-  const finish = useMutation(api.call.finish)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -38,7 +34,8 @@ export function CallSheet({ patientId, patientName, open, onOpenChange }: CallSh
         <SheetHeader>
           <SheetTitle>Call {patientName}</SheetTitle>
           <SheetDescription>
-            Ring the phone on DEMO_PHONE_NUMBER, or talk to the assistant in this browser.
+            Rings the phone on DEMO_PHONE_NUMBER. The transcript appears here when the call
+            ends.
           </SheetDescription>
         </SheetHeader>
 
@@ -74,18 +71,6 @@ export function CallSheet({ patientId, patientName, open, onOpenChange }: CallSh
               </div>
 
               <PhoneCallForm patientId={patientId} questionCount={context.goals.length} />
-              <CallPanel
-                patientName={context.patientName}
-                patientAge={context.patientAge}
-                patientDob={context.patientDob}
-                goals={context.goals}
-                onCallStarted={async (vapiCallId) => {
-                  await register({ patientId, vapiCallId })
-                }}
-                onCallEnded={async (vapiCallId, turns) => {
-                  await finish({ vapiCallId, transcript: formatTurns(turns) })
-                }}
-              />
               <StoredTranscript patientId={patientId} patientName={context.patientName} />
             </>
           )}
