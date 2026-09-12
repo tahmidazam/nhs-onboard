@@ -136,17 +136,9 @@ the code cannot carry the meaning itself.
 **Prose**, in comments, docs, commits, UI copy and the submission, runs through
 the `unslop` skill in `.claude/skills/unslop/`. No em dashes.
 
-**UI.** shadcn components carry colour, typography, radius and shadow. Outside
-`src/components/ui/` use layout utilities only: `flex`, `grid`, `gap-*`, `w-*`,
-`max-w-*`. Muted text is `text-muted-foreground`.
-
-Toast reports the outcome of an async action the user started. Alert states a
-persistent condition next to what it describes. Dialog confirms a decision with
-consequence. Sheet shows detail.
-
-Badge variants map to the three confidence buckets and nothing else. Numbers get
-`tabular-nums`. Dates render as `12 Sep 2026`. Empty states are specific
-sentences. No emoji.
+**UI.** Rules live in `.claude/skills/ui-conventions/SKILL.md`: shadcn carries
+colour and typography, layout utilities only outside `src/components/ui/`, and
+one job each for Toast, Alert, Dialog and Sheet.
 
 ## Safety
 
