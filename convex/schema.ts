@@ -25,12 +25,8 @@ export default defineSchema({
     simId: v.string(),
     name: v.string(),
     birthDate: v.string(),
-    /**
-     * ISO 3166-1 alpha-2, written at onboarding. See ADR 9. Optional here only
-     * so this branch validates against rows the onboarding slice already
-     * writes; #4 makes it required when it lands.
-     */
-    country: v.optional(v.string()),
+    /** ISO 3166-1 alpha-2. Supplied by an operator or a call. See ADR 9. */
+    country: v.string(),
     stage: v.union(
       v.literal('not-onboarded'),
       v.literal('degrading'),

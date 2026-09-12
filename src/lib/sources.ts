@@ -64,6 +64,22 @@ export function sourceForCountry(country: string): BrandSource | undefined {
   return BRAND_SOURCES.find((s) => s.country === country.toUpperCase())
 }
 
+export interface SelectableCountry {
+  code: string
+  label: string
+}
+
+/**
+ * Countries the onboarding country control may offer. Limited to
+ * `BRAND_SOURCES` so an operator cannot pick a country whose brand lookup
+ * silently fails. See ADR 9 and ADR 12's "silent filtering" concern in
+ * reverse: the point here is that a country not on this list must not be
+ * pickable at all.
+ */
+export function selectableCountries(): SelectableCountry[] {
+  return BRAND_SOURCES.map((s) => ({ code: s.country, label: s.label }))
+}
+
 /** Normalise a brand string to the lookup key used by every dataset. */
 export function normaliseBrand(raw: string): string {
   return raw.toLowerCase().replace(/[^a-z0-9]/g, '')
