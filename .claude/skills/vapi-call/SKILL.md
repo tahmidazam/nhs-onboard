@@ -33,8 +33,10 @@ so one assistant covers Bengali, Hindi and English with no handoff.
 otherwise behave as though they speak only English, whatever the transcriber
 detects.
 
-`language-change-detected` is absent from the default `serverMessages`. Add it to
-show the language switch on screen.
+The language switch is absent from both default message lists, and the two
+channels spell it differently: the webhook wants `language-change-detected` in
+`serverMessages`, the browser SDK wants `language-changed` in `clientMessages`.
+Enable both, or the switch never reaches the screen.
 
 ## Running a call
 
