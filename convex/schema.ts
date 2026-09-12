@@ -25,6 +25,12 @@ export default defineSchema({
     simId: v.string(),
     name: v.string(),
     birthDate: v.string(),
+    /**
+     * ISO 3166-1 alpha-2, written at onboarding. See ADR 9. Optional here only
+     * so this branch validates against rows the onboarding slice already
+     * writes; #4 makes it required when it lands.
+     */
+    country: v.optional(v.string()),
     stage: v.union(
       v.literal('not-onboarded'),
       v.literal('degrading'),
@@ -44,6 +50,22 @@ export default defineSchema({
       immunisations: v.array(v.string()),
     }),
     recovery: v.optional(v.object({ total: v.number(), recovered: v.number() })),
+    /**
+     * One entry per extraction call that failed twice. Recorded rather than
+     * swallowed: a document that yielded nothing because a call failed is
+     * otherwise indistinguishable from a document that held nothing, and that
+     * difference lands in the recovery denominator's story. Written by
+     * convex/extract.ts, cleared at the start of every run.
+     */
+    extractionFailures: v.optional(
+      v.array(
+        v.object({
+          documentId: v.id('documents'),
+          agent: v.string(),
+          message: v.string(),
+        }),
+      ),
+    ),
   }).index('by_simId', ['simId']),
 
   /** Output of the degrader. */
