@@ -43,14 +43,17 @@ export const BRAND_SOURCES: BrandSource[] = [
   },
 ]
 
-/** Covers 44 countries including Ukraine, Russia, Poland, Nigeria, Philippines. */
+/**
+ * Compiled from 44 national brand registries, but the table is `d(k, name, ing,
+ * rxcui)` with no country column. A brand resolves to its ingredient without
+ * telling us which market it came from, so rows are tagged `XX`.
+ */
 export const INTERNATIONAL_FALLBACK = {
   file: 'idd.sqlite',
   exportedTo: 'idd.csv',
   via: 'idd' as const,
   rows: 424_357,
   generics: 11_734,
-  countries: 44,
 }
 
 /** Total brands resolvable across every source. Shown in the UI. */

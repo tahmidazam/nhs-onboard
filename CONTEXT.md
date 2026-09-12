@@ -76,7 +76,7 @@ All keyless, all under `data/`. `pnpm data:fetch` pulls the large ones.
 |---|---|---|
 | `bd_medicines.csv` | 21,714 Bangladeshi brands to generics, from MEDEX | open dataset |
 | `indian_medicines.csv` | 253,973 Indian brands to composition | open dataset |
-| `idd.sqlite` | 425,528 international brands across 44 countries | CC BY 4.0 |
+| `idd.sqlite` | 425,528 international brands, no country column | CC BY 4.0 |
 | `formulary.json` | 3,214 Cambridge and Peterborough entries with RAG status | scraped once at build time |
 | `bnf.csv` | 54,437 NHSBSA BNF rows | OGL v3.0 |
 | `sim.json` | NHS simulator OpenAPI spec | |
