@@ -30,3 +30,21 @@ const STAGE_LABELS: Record<string, string> = {
 export function formatStage(stage: string): string {
   return STAGE_LABELS[stage] ?? stage
 }
+
+const DOCUMENT_KIND_LABELS: Record<string, string> = {
+  'discharge-summary': 'Discharge summary',
+  'vaccination-card': 'Vaccination card',
+  'prescription-list': 'Prescription list',
+  'clinic-letter': 'Clinic letter',
+}
+
+export function formatDocumentKind(kind: string | undefined): string {
+  if (!kind) return 'A document that no longer exists'
+  return DOCUMENT_KIND_LABELS[kind] ?? kind
+}
+
+/** Renders an extraction agent's trace name, such as 'extract-medication', as 'Medication'. */
+export function formatAgent(agent: string): string {
+  const name = agent.replace(/^extract-/, '').replace(/-/g, ' ')
+  return name.charAt(0).toUpperCase() + name.slice(1)
+}
