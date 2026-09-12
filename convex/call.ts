@@ -1,6 +1,6 @@
 import { v } from 'convex/values'
 import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
-import { internal } from './_generated/api'
+import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 
 /**
@@ -27,16 +27,70 @@ export const openGaps = internalQuery({
   },
 })
 
-/** The open gap questions for a patient, for the browser call path. */
-export const openQuestions = query({
+/** Whole number of years at the sim's current date. */
+function ageFrom(birthDate: string, now: number): number {
+  const born = new Date(birthDate)
+  const today = new Date(now)
+  let age = today.getUTCFullYear() - born.getUTCFullYear()
+  const month = today.getUTCMonth() - born.getUTCMonth()
+  if (month < 0 || (month === 0 && today.getUTCDate() < born.getUTCDate())) age--
+  return age
+}
+
+/**
+ * Everything the assistant's prompt reads as variables. One source, so the
+ * phone and browser paths cannot drift apart.
+ */
+export const callContext = query({
   args: { patientId: v.id('patients') },
-  returns: v.array(v.string()),
+  returns: v.union(
+    v.null(),
+    v.object({
+      patientName: v.string(),
+      patientAge: v.number(),
+      patientDob: v.string(),
+      goals: v.array(v.string()),
+    }),
+  ),
   handler: async (ctx, { patientId }) => {
+    const patient = await ctx.db.get(patientId)
+    if (!patient) return null
     const gaps = await ctx.db
       .query('gaps')
       .withIndex('by_patient', (q) => q.eq('patientId', patientId))
       .collect()
-    return gaps.filter((g) => g.status === 'open').map((g) => g.question)
+    return {
+      patientName: patient.name,
+      patientAge: ageFrom(patient.birthDate, Date.now()),
+      patientDob: patient.birthDate,
+      goals: gaps.filter((g) => g.status === 'open').map((g) => g.question),
+    }
+  },
+})
+
+export const latestCall = query({
+  args: { patientId: v.id('patients') },
+  returns: v.union(
+    v.null(),
+    v.object({
+      channel: v.union(v.literal('voice'), v.literal('chat')),
+      status: v.union(
+        v.literal('pending'),
+        v.literal('in-progress'),
+        v.literal('complete'),
+        v.literal('failed'),
+      ),
+      transcript: v.optional(v.string()),
+    }),
+  ),
+  handler: async (ctx, { patientId }) => {
+    const call = await ctx.db
+      .query('calls')
+      .withIndex('by_patient', (q) => q.eq('patientId', patientId))
+      .order('desc')
+      .first()
+    if (!call) return null
+    return { channel: call.channel, status: call.status, transcript: call.transcript }
   },
 })
 
@@ -172,7 +226,12 @@ export const ingestClaims = internalMutation({
 })
 
 export const place = action({
-  args: { patientId: v.id('patients'), number: v.string(), language: v.optional(v.string()) },
+  args: {
+    patientId: v.id('patients'),
+    /** Falls back to DEMO_PHONE_NUMBER on the deployment. */
+    number: v.optional(v.string()),
+    language: v.optional(v.string()),
+  },
   returns: v.object({ callId: v.id('calls'), vapiCallId: v.optional(v.string()) }),
   handler: async (
     ctx,
@@ -187,7 +246,26 @@ export const place = action({
       )
     }
 
+    const dial = number ?? process.env.DEMO_PHONE_NUMBER
+    if (!dial) {
+      throw new Error('No number to call. Set DEMO_PHONE_NUMBER with `npx convex env set`.')
+    }
+    /**
+     * Vapi rejects anything that is not E.164, and a UK number written the way
+     * people say it out loud is the common mistake.
+     */
+    if (!/^\+[1-9]\d{7,14}$/.test(dial)) {
+      throw new Error(
+        `DEMO_PHONE_NUMBER is "${dial}", which Vapi will reject. It needs the international ` +
+          'form: drop the leading zero and put the country code on, so 07700 900000 becomes ' +
+          '+447700900000.',
+      )
+    }
+
     const gaps = await ctx.runQuery(internal.call.openGaps, { patientId })
+    const context = await ctx.runQuery(api.call.callContext, { patientId })
+    if (!context) throw new Error('That patient does not exist.')
+
     const callId = await ctx.runMutation(internal.call.create, {
       patientId,
       language,
@@ -201,11 +279,16 @@ export const place = action({
       body: JSON.stringify({
         assistantId,
         phoneNumberId,
-        customer: { number },
+        customer: { number: dial },
         assistantOverrides: {
-          /** The dashboard prompt reads {{goals}}. Keep the placeholder in step with it. */
+          /** Names here must match the placeholders in the dashboard prompt. */
           variableValues: {
-            goals: gaps.map((g, i) => `${i + 1}. ${g.question}`).join('\n') || 'No open questions.',
+            patientName: context.patientName,
+            patientAge: String(context.patientAge),
+            patientDob: context.patientDob,
+            goals:
+              context.goals.map((q, i) => `${i + 1}. ${q}`).join('\n') ||
+              'Nothing specific is outstanding. Work the call plan.',
           },
         },
       }),

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import Vapi from '@vapi-ai/web'
+import VapiClass from '@vapi-ai/web'
+
+/**
+ * The package ships CommonJS with no exports map, so the bundler's interop puts
+ * the class under `.default`. Reading through it keeps both shapes working.
+ */
+const Vapi = ((VapiClass as unknown as { default?: typeof VapiClass }).default ??
+  VapiClass) as typeof VapiClass
+
+type VapiInstance = InstanceType<typeof VapiClass>
 
 /**
  * Drives one browser call. The assistant lives in the Vapi dashboard, so this
@@ -17,6 +26,8 @@ export interface TranscriptLine {
 interface StartOptions {
   goals: string[]
   patientName: string
+  patientAge: number
+  patientDob: string
 }
 
 interface UseVapiCallOptions {
@@ -28,7 +39,7 @@ interface UseVapiCallOptions {
 }
 
 export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
-  const vapiRef = useRef<Vapi | null>(null)
+  const vapiRef = useRef<VapiInstance | null>(null)
   const [status, setStatus] = useState<CallStatus>('idle')
   const [transcript, setTranscript] = useState<TranscriptLine[]>([])
   const [language, setLanguage] = useState<string | null>(null)
@@ -41,7 +52,13 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
       return
     }
 
-    const vapi = new Vapi(key)
+    let vapi: VapiInstance
+    try {
+      vapi = new Vapi(key)
+    } catch (e) {
+      setProblem(e instanceof Error ? e.message : 'The Vapi SDK failed to start.')
+      return
+    }
     vapiRef.current = vapi
 
     vapi.on('call-start', () => setStatus('in-progress'))
@@ -60,9 +77,17 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
       setProblem(typeof e?.message === 'string' ? e.message : 'The call failed.')
     })
 
+    /**
+     * StrictMode mounts, unmounts and remounts, so this runs against a call that
+     * never started. A throw here would unmount the whole tree.
+     */
     return () => {
-      vapi.stop()
-      vapi.removeAllListeners()
+      try {
+        vapi.stop()
+        vapi.removeAllListeners()
+      } catch {
+        /* nothing to stop */
+      }
       vapiRef.current = null
     }
   }, [])
@@ -72,10 +97,15 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
    * customerJoinTimeoutSeconds is assistant-level config, so it belongs in the
    * dashboard. It defaults to 15, which is short for conference wifi.
    */
-  const start = useCallback(async ({ goals, patientName }: StartOptions) => {
+  const start = useCallback(
+    async ({ goals, patientName, patientAge, patientDob }: StartOptions) => {
     const assistantId = import.meta.env.VITE_VAPI_ASSISTANT_ID as string | undefined
-    if (!vapiRef.current || !assistantId) {
+    if (!assistantId) {
       setProblem('VITE_VAPI_ASSISTANT_ID is not set.')
+      return
+    }
+    if (!vapiRef.current) {
+      setProblem('The Vapi SDK did not load, so there is nothing to place a call with.')
       return
     }
 
@@ -86,10 +116,18 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
 
     try {
       const call = await vapiRef.current.start(assistantId, {
-        /** The dashboard prompt reads {{goals}} and {{patientName}}. */
+        /**
+         * Names here must match the placeholders in the dashboard prompt, and
+         * the set must match what convex/call.ts sends, or the phone and the
+         * browser paths ask the patient different questions.
+         */
         variableValues: {
-          goals: goals.map((g, i) => `${i + 1}. ${g}`).join('\n') || 'No open questions.',
           patientName,
+          patientAge: String(patientAge),
+          patientDob,
+          goals:
+            goals.map((g, i) => `${i + 1}. ${g}`).join('\n') ||
+            'Nothing specific is outstanding. Work the call plan.',
         },
       })
       if (call?.id) await onStarted?.(call.id)
@@ -97,7 +135,9 @@ export function useVapiCall({ onStarted }: UseVapiCallOptions = {}) {
       setStatus('failed')
       setProblem(e instanceof Error ? e.message : 'The call could not start.')
     }
-  }, [onStarted])
+    },
+    [onStarted],
+  )
 
   const stop = useCallback(() => vapiRef.current?.stop(), [])
 
