@@ -19,6 +19,9 @@ export const resolve = query({
       generic: v.optional(v.string()),
       via: v.string(),
       unresolved: v.boolean(),
+      ukIngredient: v.optional(v.string()),
+      prescribable: v.optional(v.string()),
+      vmpId: v.optional(v.string()),
       ukFormularyName: v.optional(v.string()),
       rag: v.optional(v.string()),
       formularyMatches: v.optional(
@@ -46,9 +49,17 @@ export const resolve = query({
     if (!hit) return { brand, unresolved: true as const, via: 'unresolved' as const }
 
     const stem = normalise(hit.generic.split(/[ (]/)[0])
+
+    const dmd = await ctx.db
+      .query('dmd')
+      .withIndex('by_key', (q) => q.gte('key', stem).lt('key', stem + '￿'))
+      .take(1)
+
+    /** dm+d carries the UK spelling, so search the formulary with it when present. */
+    const formularyStem = dmd[0] ? normalise(dmd[0].vtmName.split(/[ (]/)[0]) : stem
     const formulary = await ctx.db
       .query('formulary')
-      .withIndex('by_key', (q) => q.gte('key', stem).lt('key', stem + '￿'))
+      .withIndex('by_key', (q) => q.gte('key', formularyStem).lt('key', formularyStem + '￿'))
       .take(5)
 
     return {
@@ -56,9 +67,11 @@ export const resolve = query({
       generic: hit.generic,
       via: hit.via,
       unresolved: false as const,
+      ukIngredient: dmd[0]?.vtmName,
+      prescribable: dmd[0]?.vmpName,
+      vmpId: dmd[0]?.vmpId,
       ukFormularyName: formulary[0]?.drug,
       rag: formulary[0]?.rag,
-      /** Every formulary match, so route-dependent RAG differences stay visible. */
       formularyMatches: formulary.map((f) => ({ drug: f.drug, rag: f.rag, chapter: f.chapter })),
     }
   },
@@ -92,6 +105,28 @@ export const insertFormulary = internalMutation({
   returns: v.number(),
   handler: async (ctx, { rows }) => {
     for (const row of rows) await ctx.db.insert('formulary', row)
+    return rows.length
+  },
+})
+
+export const insertDmd = internalMutation({
+  args: {
+    rows: v.array(
+      v.object({
+        key: v.string(),
+        vtmId: v.string(),
+        vtmName: v.string(),
+        vmpId: v.optional(v.string()),
+        vmpName: v.optional(v.string()),
+        form: v.optional(v.string()),
+        route: v.optional(v.string()),
+        bnfCode: v.optional(v.string()),
+      }),
+    ),
+  },
+  returns: v.number(),
+  handler: async (ctx, { rows }) => {
+    for (const row of rows) await ctx.db.insert('dmd', row)
     return rows.length
   },
 })

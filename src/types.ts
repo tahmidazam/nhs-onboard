@@ -64,6 +64,11 @@ export interface Claim {
 export interface MedicationMapping {
   brand: string
   generic?: string
+  /** dm+d VTM. The UK spelling, e.g. 'Paracetamol' where RxNorm says 'acetaminophen'. */
+  ukIngredient?: string
+  /** dm+d VMP. Written into draft_prescription.drug. */
+  prescribable?: string
+  vmpId?: string
   ukFormularyName?: string
   /** Cambridge and Peterborough traffic light: 'Green', 'Red Hospital', 'OTC'. */
   rag?: string

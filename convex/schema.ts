@@ -132,6 +132,22 @@ export default defineSchema({
     via: v.string(),
   }).index('by_key', ['key']),
 
+  /**
+   * dm+d virtual products. `vtm` is the UK ingredient, `vmp` the prescribable
+   * product written into draft_prescription.
+   */
+  dmd: defineTable({
+    /** Normalised VTM name. */
+    key: v.string(),
+    vtmId: v.string(),
+    vtmName: v.string(),
+    vmpId: v.optional(v.string()),
+    vmpName: v.optional(v.string()),
+    form: v.optional(v.string()),
+    route: v.optional(v.string()),
+    bnfCode: v.optional(v.string()),
+  }).index('by_key', ['key']).index('by_vtm', ['vtmId']),
+
   /** Cambridge and Peterborough formulary. Seeded by `npm run data:seed`. */
   formulary: defineTable({
     key: v.string(),

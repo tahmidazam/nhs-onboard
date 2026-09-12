@@ -86,6 +86,17 @@ async function seedInternational() {
   await send(rows, (batch) => client.mutation(internal.brands.insertBrands, { rows: batch }), 'IDD brands')
 }
 
+/** dm+d VTM to prescribable VMP. Produced by scripts/parse-dmd.ts. */
+async function seedDmd() {
+  const path = 'data/dmd.json'
+  if (!existsSync(path)) return console.log('skip    dmd.json. Run: npx tsx scripts/parse-dmd.ts')
+  const rows = JSON.parse(readFileSync(path, 'utf8')) as {
+    key: string; vtmId: string; vtmName: string
+    vmpId?: string; vmpName?: string; bnfCode?: string
+  }[]
+  await send(rows.filter((r) => r.key), (batch) => client.mutation(internal.brands.insertDmd, { rows: batch }), 'dm+d')
+}
+
 async function seedFormulary() {
   const path = 'data/formulary.json'
   if (!existsSync(path)) return console.log('skip    formulary.json')
@@ -101,5 +112,6 @@ async function seedFormulary() {
 await seedBangladesh()
 await seedIndia()
 await seedInternational()
+await seedDmd()
 await seedFormulary()
 console.log(await client.query(api.brands.counts, {}))
