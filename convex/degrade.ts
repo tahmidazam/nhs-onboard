@@ -5,6 +5,7 @@ import type { Doc } from './_generated/dataModel'
 import { degradeRecord } from './lib/degradeRecord'
 import { applyBrandNames } from './lib/degradeBrand'
 import { translateLines } from './lib/degradeTranslate'
+import { synthesiseVaccinationCard } from './lib/degradeVaccination'
 import { sourceForCountry } from '../src/lib/sources'
 import type { PatientRecord } from '../src/types'
 
@@ -142,12 +143,28 @@ export const degrade = action({
     /** Seeded from the sim id, so the same patient degrades identically every run. */
     const { documents } = degradeRecord(record, patient.country, patient.simId)
 
+    /**
+     * The sim carries no immunisation data (ADR 8), so every onboarded patient
+     * gets a synthesised card rather than immunisation catch-up depending on
+     * which patient a judge happened to pick.
+     */
+    const vaccinationCard = synthesiseVaccinationCard(
+      patient.name,
+      patient.birthDate,
+      patient.country,
+      patient.simId,
+      Date.now(),
+    )
+
+    const allDocuments = [...documents.map((d) => ({ ...d, synthesised: false as const })), vaccinationCard]
+
     /** The country's primary language. Falls back to English when the source carries none. */
     const language = sourceForCountry(patient.country)?.languages[0] ?? 'en'
 
     const drafts = await Promise.all(
-      documents.map(async ({ kind, country, text, medicationNames }) => {
+      allDocuments.map(async ({ kind, country, text, synthesised, ...rest }) => {
         let lines = text.split('\n')
+        const medicationNames = 'medicationNames' in rest ? rest.medicationNames : undefined
 
         /** Brand rendering runs the mapping backwards, before translation. */
         if (medicationNames && medicationNames.length > 0) {
@@ -164,7 +181,7 @@ export const degrade = action({
 
         if (language !== 'en') lines = await translateLines(lines, language)
 
-        return { kind, language, country, text: lines.join('\n') }
+        return { kind, language, country, text: lines.join('\n'), synthesised }
       }),
     )
 

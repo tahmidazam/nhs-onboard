@@ -17,6 +17,7 @@ import type * as lib_degradeBrand from "../lib/degradeBrand.js";
 import type * as lib_degradeConstants from "../lib/degradeConstants.js";
 import type * as lib_degradeRecord from "../lib/degradeRecord.js";
 import type * as lib_degradeTranslate from "../lib/degradeTranslate.js";
+import type * as lib_degradeVaccination from "../lib/degradeVaccination.js";
 import type * as lib_matchRecovery from "../lib/matchRecovery.js";
 import type * as lib_normalisePatient from "../lib/normalisePatient.js";
 import type * as lib_simClient from "../lib/simClient.js";
@@ -42,6 +43,7 @@ declare const fullApi: ApiFromModules<{
   "lib/degradeConstants": typeof lib_degradeConstants;
   "lib/degradeRecord": typeof lib_degradeRecord;
   "lib/degradeTranslate": typeof lib_degradeTranslate;
+  "lib/degradeVaccination": typeof lib_degradeVaccination;
   "lib/matchRecovery": typeof lib_matchRecovery;
   "lib/normalisePatient": typeof lib_normalisePatient;
   "lib/simClient": typeof lib_simClient;
