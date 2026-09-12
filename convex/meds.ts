@@ -20,8 +20,8 @@ function toVia(raw: string): Via {
 
 /**
  * A mapping is safe to prescribe from only when a document carried it and dm+d
- * gave back a prescribable product. Everything else keeps the clinician in the
- * loop. See docs/adr/0003-three-confidence-buckets.md.
+ * gave back a prescribable product. Everything else becomes a question the
+ * clinician answers. See docs/adr/0003-three-confidence-buckets.md.
  */
 export function bucketFor(
   claim: Pick<Doc<'claims'>, 'confidence' | 'source'>,

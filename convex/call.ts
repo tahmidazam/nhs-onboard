@@ -3,7 +3,7 @@ import { action, internalMutation, internalQuery } from './_generated/server'
 import { internal } from './_generated/api'
 
 /**
- * Places the outbound call and records what comes back.
+ * Places the outbound call and stores the transcript Vapi sends back.
  *
  * The assistant lives in the Vapi dashboard so its script can be retuned
  * without a deploy. This file passes the patient's open gaps in as variables
@@ -66,8 +66,8 @@ export const attachVapiId = internalMutation({
  * Matches on the Vapi call id because the webhook knows nothing else.
  *
  * `structured` is Vapi's own post-call extraction, shaped by the JSON schema set
- * on the assistant. It is logged rather than parsed until a real payload shows
- * what the dashboard schema produces.
+ * on the assistant. This logs it rather than parsing it, until one real payload
+ * shows what the dashboard schema produces.
  */
 export const complete = internalMutation({
   args: {

@@ -60,9 +60,9 @@ export function useVapiCall() {
   }, [])
 
   /**
-   * Must be called from a real click. Autoplay policy fails the call otherwise.
-   * customerJoinTimeoutSeconds is assistant-level config, so it is set in the
-   * dashboard and not here. It defaults to 15, which is short for conference wifi.
+   * Call this from a real click. Autoplay policy fails the call otherwise.
+   * customerJoinTimeoutSeconds is assistant-level config, so it belongs in the
+   * dashboard. It defaults to 15, which is short for conference wifi.
    */
   const start = useCallback(async ({ goals, patientName }: StartOptions) => {
     const assistantId = import.meta.env.VITE_VAPI_ASSISTANT_ID as string | undefined
