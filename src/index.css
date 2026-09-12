@@ -128,3 +128,53 @@
     @apply font-sans;
     }
 }
+/*
+ * Clinical system skin.
+ *
+ * Matches the simulator's own interface so the tool reads as part of the
+ * software a practice already runs, rather than as a separate product. Colour,
+ * radius and type only. No component markup depends on this block, so removing
+ * it returns the app to the shadcn defaults above.
+ */
+:root {
+    /* Pale lavender window, white paper, lavender-grey rules. */
+    --background: oklch(0.938 0.012 286);
+    --foreground: oklch(0.21 0.008 286);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.21 0.008 286);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.21 0.008 286);
+
+    /* The blue used for links and the active control. */
+    --primary: oklch(0.43 0.125 259);
+    --primary-foreground: oklch(0.99 0 0);
+
+    --secondary: oklch(0.892 0.018 286);
+    --secondary-foreground: oklch(0.25 0.01 286);
+    --muted: oklch(0.966 0.008 286);
+    --muted-foreground: oklch(0.46 0.025 286);
+    --accent: oklch(0.9 0.03 265);
+    --accent-foreground: oklch(0.25 0.01 286);
+
+    --border: oklch(0.815 0.023 286);
+    --input: oklch(0.815 0.023 286);
+    --ring: oklch(0.43 0.125 259);
+
+    /* The toolbar column, a shade deeper than the window. */
+    --sidebar: oklch(0.912 0.016 286);
+    --sidebar-foreground: oklch(0.21 0.008 286);
+    --sidebar-primary: oklch(0.43 0.125 259);
+    --sidebar-primary-foreground: oklch(0.99 0 0);
+    --sidebar-accent: oklch(0.86 0.03 265);
+    --sidebar-accent-foreground: oklch(0.21 0.008 286);
+    --sidebar-border: oklch(0.815 0.023 286);
+    --sidebar-ring: oklch(0.43 0.125 259);
+
+    /* Clinical software squares its corners. */
+    --radius: 0.125rem;
+}
+
+@theme inline {
+    /* The stack a Windows clinical workstation actually renders. */
+    --font-sans: 'Segoe UI', 'Inter Variable', Tahoma, sans-serif;
+}

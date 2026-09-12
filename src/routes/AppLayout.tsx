@@ -27,7 +27,7 @@ export function AppLayout() {
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader className="px-3 py-3 text-sm font-medium">NHS Onboard</SidebarHeader>
+        <SidebarHeader className="border-b border-border px-3 py-2 text-sm font-medium">NHS Onboard</SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
             <SidebarGroupContent>
@@ -60,10 +60,10 @@ export function AppLayout() {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="flex items-center gap-2 border-b border-border p-3">
+        <header className="flex items-center gap-2 border-b border-border bg-sidebar px-3 py-2">
           <SidebarTrigger />
         </header>
-        <div className="flex-1 p-6">
+        <div className="flex-1 p-4">
           <Outlet />
         </div>
       </SidebarInset>
