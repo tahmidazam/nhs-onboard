@@ -3,6 +3,7 @@ import { AppLayout } from './routes/AppLayout'
 import { Board } from './routes/board/Board'
 import { Review } from './routes/review/Review'
 import { Rules } from './routes/Rules'
+import { PatientPage } from './routes/patient/PatientPage'
 
 const rootRoute = createRootRoute({
   component: AppLayout,
@@ -25,18 +26,21 @@ const rulesRoute = createRoute({
   component: Rules,
 })
 
-/**
- * The GP review screen for one patient. A sibling agent owns `/patient/:id`
- * and the rest of `src/routes/patient/`; this route lives under
- * `src/routes/review/` instead so the two branches touch different files.
- */
+/** Splits source documents against the extracted record. See ADR 10. */
+const patientRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/patient/$id',
+  component: PatientPage,
+})
+
+/** The GP review screen for one patient. */
 const reviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/patient/$id/review',
   component: Review,
 })
 
-const routeTree = rootRoute.addChildren([indexRoute, rulesRoute, reviewRoute])
+const routeTree = rootRoute.addChildren([indexRoute, rulesRoute, patientRoute, reviewRoute])
 
 export const router = createRouter({ routeTree })
 
