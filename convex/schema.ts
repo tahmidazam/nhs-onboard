@@ -9,7 +9,7 @@ const confidence = v.union(
   v.literal('uncertain-mapping'),
 )
 
-const sourceRef = v.object({
+export const sourceRef = v.object({
   kind: v.union(v.literal('document'), v.literal('transcript'), v.literal('sim-record')),
   id: v.string(),
   quote: v.string(),

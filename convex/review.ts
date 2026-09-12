@@ -1,6 +1,7 @@
 import { v } from 'convex/values'
 import { internal } from './_generated/api'
 import { mutation, query } from './_generated/server'
+import { sourceRef } from './schema'
 
 /** Queries and mutations for the review screen. Approval schedules the write-back action. */
 
@@ -9,12 +10,6 @@ const confidence = v.union(
   v.literal('patient-reported'),
   v.literal('uncertain-mapping'),
 )
-
-const sourceRef = v.object({
-  kind: v.union(v.literal('document'), v.literal('transcript'), v.literal('sim-record')),
-  id: v.string(),
-  quote: v.string(),
-})
 
 const citation = v.object({ url: v.string(), quote: v.string() })
 
