@@ -67,6 +67,7 @@ Rationale lives in `docs/adr/`. Read the ADR before changing behaviour it covers
 | [16](docs/adr/0016-extraction-is-the-only-model-stage.md) | Extraction is the only model stage. The adjudicator is code. |
 | [17](docs/adr/0017-quotes-are-anchored-by-containment.md) | Quotes are anchored by containment. An unanchored claim is demoted, not dropped. |
 | [18](docs/adr/0018-translation-sits-in-the-recovery-path.md) | Translation sits in the recovery path. Matching does not. |
+| [19](docs/adr/0019-model-calls-are-recorded-in-convex.md) | Model calls are recorded in Convex. The dashboard trace is the second copy. |
 
 ## Data sources
 

@@ -14,6 +14,7 @@ import {
 import { Spinner } from '@/components/ui/spinner'
 import { toast } from '@/components/ui/toast'
 import { formatAgent, formatDocumentKind } from '@/lib/format'
+import { AgentRunList } from './AgentRunList'
 import type { ExtractionFailure } from './types'
 
 /** Names the document a failed call was reading, for the sentence it sits in. */
@@ -104,6 +105,7 @@ export function ExtractionSheet({
               </p>
             </div>
           )}
+          <AgentRunList patientId={patientId} />
         </div>
         <div className="mt-auto flex justify-end gap-2 p-6">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
