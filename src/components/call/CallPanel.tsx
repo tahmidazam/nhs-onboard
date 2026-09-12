@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import type { Turn } from '@/lib/transcript'
 import { useVapiCall } from './useVapiCall'
 
 /**
  * Places one call and renders each turn as it completes.
- * This transcript is the live view and is not stored. The saved copy arrives
- * later through the end-of-call-report webhook.
+ * This is the live view. The same turns are saved when the call ends, and are
+ * replaced by Vapi's own copy once the end-of-call report lands.
  */
 
 interface CallPanelProps {
@@ -20,6 +21,12 @@ interface CallPanelProps {
    * and the transcript is discarded.
    */
   onCallStarted?: (vapiCallId: string) => void | Promise<void>
+  /**
+   * Runs when the call ends, with the turns spoken. Wire this to
+   * `api.call.finish` so the transcript is saved as soon as the call is over,
+   * rather than whenever the end-of-call report turns up.
+   */
+  onCallEnded?: (vapiCallId: string, turns: Turn[]) => void | Promise<void>
 }
 
 const STATUS_COPY = {
@@ -47,9 +54,11 @@ export function CallPanel({
   patientDob,
   goals,
   onCallStarted,
+  onCallEnded,
 }: CallPanelProps) {
   const { status, transcript, language, problem, start, stop } = useVapiCall({
     onStarted: onCallStarted,
+    onEnded: onCallEnded,
   })
   const live = status === 'connecting' || status === 'in-progress'
 
@@ -87,7 +96,7 @@ export function CallPanel({
           transcript.map((line, i) => (
             <div key={i} className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">
-                {line.role === 'assistant' ? 'Assistant' : patientName}
+                {line.speaker === 'assistant' ? 'Assistant' : patientName}
               </span>
               <p className="text-sm">{line.text}</p>
             </div>

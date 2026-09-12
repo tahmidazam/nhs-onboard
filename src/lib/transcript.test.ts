@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseTurns } from './transcript'
+import { formatTurns, parseTurns } from './transcript'
 
 describe('parseTurns', () => {
   it('splits the prefixes Vapi writes into turns', () => {
@@ -36,5 +36,20 @@ describe('parseTurns', () => {
     expect(parseTurns('call started\nAI: Hello.')).toEqual([
       { speaker: 'assistant', text: 'Hello.' },
     ])
+  })
+})
+
+describe('formatTurns', () => {
+  it('writes the prefixes parseTurns reads back, so the live copy survives a round trip', () => {
+    const turns = [
+      { speaker: 'assistant', text: 'Good morning.' },
+      { speaker: 'patient', text: 'Hello.' },
+    ] as const
+
+    expect(parseTurns(formatTurns([...turns]))).toEqual([...turns])
+  })
+
+  it('gives an empty transcript for a call where nobody spoke', () => {
+    expect(formatTurns([])).toBe('')
   })
 })

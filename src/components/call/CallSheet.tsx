@@ -9,6 +9,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
+import { formatTurns } from '@/lib/transcript'
 import { CallPanel } from './CallPanel'
 import { PhoneCallForm } from './PhoneCallForm'
 import { StoredTranscript } from './StoredTranscript'
@@ -29,6 +30,7 @@ export function CallSheet({ patientId, patientName, open, onOpenChange }: CallSh
   /** Nothing is read until the sheet opens, so the board does not fan out a query per row. */
   const context = useQuery(api.call.callContext, open ? { patientId } : 'skip')
   const register = useMutation(api.call.register)
+  const finish = useMutation(api.call.finish)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -79,6 +81,9 @@ export function CallSheet({ patientId, patientName, open, onOpenChange }: CallSh
                 goals={context.goals}
                 onCallStarted={async (vapiCallId) => {
                   await register({ patientId, vapiCallId })
+                }}
+                onCallEnded={async (vapiCallId, turns) => {
+                  await finish({ vapiCallId, transcript: formatTurns(turns) })
                 }}
               />
               <StoredTranscript patientId={patientId} patientName={context.patientName} />

@@ -1,5 +1,12 @@
 import { v } from 'convex/values'
-import { action, internalMutation, internalQuery, mutation, query } from './_generated/server'
+import {
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from './_generated/server'
 import { api, internal } from './_generated/api'
 import type { Id } from './_generated/dataModel'
 
@@ -12,6 +19,15 @@ import type { Id } from './_generated/dataModel'
  */
 
 const VAPI_ORIGIN = 'https://api.vapi.ai'
+
+/**
+ * The end-of-call report is the fast path and the poll is the safety net, so
+ * the first check waits out a short call rather than racing the webhook.
+ * The call plan runs about ten minutes, so give up well past that.
+ */
+const FIRST_POLL_MS = 60_000
+const POLL_EVERY_MS = 30_000
+const MAX_POLLS = 40
 
 export const openGaps = internalQuery({
   args: { patientId: v.id('patients') },
@@ -81,6 +97,9 @@ export const latestCall = query({
         v.literal('failed'),
       ),
       transcript: v.optional(v.string()),
+      transcriptSource: v.optional(v.union(v.literal('live'), v.literal('report'))),
+      /** Lets the UI say "ended, transcript on its way" instead of "still running". */
+      ended: v.boolean(),
     }),
   ),
   handler: async (ctx, { patientId }) => {
@@ -90,7 +109,13 @@ export const latestCall = query({
       .order('desc')
       .first()
     if (!call) return null
-    return { channel: call.channel, status: call.status, transcript: call.transcript }
+    return {
+      channel: call.channel,
+      status: call.status,
+      transcript: call.transcript,
+      transcriptSource: call.transcriptSource,
+      ended: call.endedAt !== undefined,
+    }
   },
 })
 
@@ -122,22 +147,64 @@ export const register = mutation({
     language: v.optional(v.string()),
   },
   returns: v.id('calls'),
-  handler: async (ctx, { patientId, vapiCallId, language }) =>
-    ctx.db.insert('calls', {
+  handler: async (ctx, { patientId, vapiCallId, language }) => {
+    const callId = await ctx.db.insert('calls', {
       patientId,
       vapiCallId,
       language,
       channel: 'voice',
       status: 'in-progress',
       gapIds: [],
-    }),
+    })
+    /** If the tab dies before `finish` runs, the poll still closes the row out. */
+    await ctx.scheduler.runAfter(FIRST_POLL_MS, internal.call.poll, {
+      callId,
+      vapiCallId,
+      attempt: 0,
+    })
+    return callId
+  },
+})
+
+/**
+ * Closes the row out the moment the browser's call ends, with the live
+ * transcript as a stand-in. Without this the row sits at `in-progress` until
+ * the end-of-call report lands, which is seconds at best and never if the
+ * assistant has no server URL, so the UI keeps claiming the call is running.
+ *
+ * The report overwrites this when it arrives. See `complete`.
+ */
+export const finish = mutation({
+  args: { vapiCallId: v.string(), transcript: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { vapiCallId, transcript }) => {
+    const call = await ctx.db
+      .query('calls')
+      .withIndex('by_vapiCallId', (q) => q.eq('vapiCallId', vapiCallId))
+      .first()
+    if (!call) return null
+    /** The report is the better copy, so never write over one that already landed. */
+    if (call.transcriptSource === 'report') return null
+
+    const status = transcript.trim() ? ('complete' as const) : ('failed' as const)
+    await ctx.db.patch(call._id, {
+      transcript,
+      status,
+      transcriptSource: 'live',
+      endedAt: Date.now(),
+    })
+    await ctx.db.patch(call.patientId, {
+      stage: status === 'complete' ? ('ready-for-review' as const) : ('awaiting-call' as const),
+    })
+    return null
+  },
 })
 
 export const markFailed = internalMutation({
   args: { callId: v.id('calls') },
   returns: v.null(),
   handler: async (ctx, { callId }) => {
-    await ctx.db.patch(callId, { status: 'failed' })
+    await ctx.db.patch(callId, { status: 'failed', endedAt: Date.now() })
     return null
   },
 })
@@ -176,7 +243,13 @@ export const complete = internalMutation({
 
     /** Vapi reports a hangup for both a finished call and one nobody picked up. */
     const status = transcript.trim() ? ('complete' as const) : ('failed' as const)
-    await ctx.db.patch(call._id, { transcript, status })
+    /** The report is canonical, so it overwrites whatever the browser saved live. */
+    await ctx.db.patch(call._id, {
+      transcript,
+      status,
+      transcriptSource: 'report',
+      endedAt: call.endedAt ?? Date.now(),
+    })
     await ctx.db.patch(call.patientId, {
       stage: status === 'complete' ? ('ready-for-review' as const) : ('awaiting-call' as const),
     })
@@ -300,7 +373,89 @@ export const place = action({
     }
 
     const { id } = (await response.json()) as { id?: string }
-    if (id) await ctx.runMutation(internal.call.attachVapiId, { callId, vapiCallId: id })
+    /** Without an id the report can never find this row, so it would sit pending forever. */
+    if (!id) {
+      await ctx.runMutation(internal.call.markFailed, { callId })
+      throw new Error('Vapi accepted the call but returned no id, so its transcript is unreachable.')
+    }
+
+    await ctx.runMutation(internal.call.attachVapiId, { callId, vapiCallId: id })
+    await ctx.scheduler.runAfter(FIRST_POLL_MS, internal.call.poll, {
+      callId,
+      vapiCallId: id,
+      attempt: 0,
+    })
     return { callId, vapiCallId: id }
+  },
+})
+
+export const state = internalQuery({
+  args: { callId: v.id('calls') },
+  returns: v.union(
+    v.null(),
+    v.object({
+      status: v.union(
+        v.literal('pending'),
+        v.literal('in-progress'),
+        v.literal('complete'),
+        v.literal('failed'),
+      ),
+    }),
+  ),
+  handler: async (ctx, { callId }) => {
+    const call = await ctx.db.get(callId)
+    return call ? { status: call.status } : null
+  },
+})
+
+/**
+ * Asks Vapi how the call went, for the rows the end-of-call report never
+ * reaches: the phone path has no browser to fall back on, and a missing or
+ * wrong server URL on the assistant silences the webhook entirely.
+ *
+ * Re-arms itself until the call ends or the run is clearly over.
+ */
+export const poll = internalAction({
+  args: { callId: v.id('calls'), vapiCallId: v.string(), attempt: v.number() },
+  returns: v.null(),
+  handler: async (ctx, { callId, vapiCallId, attempt }) => {
+    const current = await ctx.runQuery(internal.call.state, { callId })
+    /** The report or the browser got there first, which is the normal outcome. */
+    if (!current || current.status === 'complete' || current.status === 'failed') return null
+
+    const key = process.env.VAPI_PRIVATE_KEY
+    if (!key) return null
+
+    const response = await fetch(`${VAPI_ORIGIN}/call/${vapiCallId}`, {
+      headers: { Authorization: `Bearer ${key}` },
+    })
+    if (response.ok) {
+      const call = (await response.json()) as {
+        status?: string
+        endedReason?: string
+        artifact?: { transcript?: string }
+      }
+      if (call.status === 'ended') {
+        await ctx.runMutation(internal.call.complete, {
+          vapiCallId,
+          transcript: call.artifact?.transcript ?? '',
+          ended: call.endedReason ?? 'unknown',
+        })
+        return null
+      }
+    }
+
+    if (attempt + 1 >= MAX_POLLS) {
+      /** Nothing has come back in twenty minutes, so stop telling the board it is running. */
+      await ctx.runMutation(internal.call.markFailed, { callId })
+      console.log(`[call] ${vapiCallId} gave up after ${MAX_POLLS} polls`)
+      return null
+    }
+    await ctx.scheduler.runAfter(POLL_EVERY_MS, internal.call.poll, {
+      callId,
+      vapiCallId,
+      attempt: attempt + 1,
+    })
+    return null
   },
 })

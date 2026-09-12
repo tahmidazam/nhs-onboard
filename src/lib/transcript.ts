@@ -32,3 +32,12 @@ export function parseTurns(transcript: string): Turn[] {
 
   return turns.filter((turn) => turn.text)
 }
+
+/**
+ * Renders live turns in the same shape Vapi's saved transcript uses, so the
+ * browser's fallback copy and the end-of-call report both read back through
+ * `parseTurns`.
+ */
+export function formatTurns(turns: Turn[]): string {
+  return turns.map((turn) => `${turn.speaker === 'assistant' ? 'AI' : 'User'}: ${turn.text}`).join('\n')
+}
