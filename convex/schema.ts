@@ -140,6 +140,8 @@ export default defineSchema({
       v.literal('immunisation'),
       v.literal('test'),
       v.literal('task'),
+      v.literal('problem'),
+      v.literal('allergy'),
     ),
     title: v.string(),
     rationale: v.string(),
@@ -227,6 +229,13 @@ export default defineSchema({
     language: v.optional(v.string()),
     status: v.union(v.literal('pending'), v.literal('in-progress'), v.literal('complete'), v.literal('failed')),
     transcript: v.optional(v.string()),
+    /**
+     * Where the transcript came from. The browser saves its live one the moment
+     * the call ends; Vapi's end-of-call report arrives later and always wins.
+     */
+    transcriptSource: v.optional(v.union(v.literal('live'), v.literal('report'))),
+    /** Set when the call is known to be over, whatever the transcript is doing. */
+    endedAt: v.optional(v.number()),
     gapIds: v.array(v.id('gaps')),
   }).index('by_patient', ['patientId']).index('by_vapiCallId', ['vapiCallId']),
 })

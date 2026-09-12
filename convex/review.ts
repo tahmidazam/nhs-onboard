@@ -24,6 +24,8 @@ const recommendationDoc = v.object({
     v.literal('immunisation'),
     v.literal('test'),
     v.literal('task'),
+    v.literal('problem'),
+    v.literal('allergy'),
   ),
   title: v.string(),
   rationale: v.string(),

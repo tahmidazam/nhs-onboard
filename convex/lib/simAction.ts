@@ -3,14 +3,20 @@ import type { Recommendation, RecommendationKind, SimTarget } from '../../src/ty
 /**
  * Maps a Recommendation to the sim action that writes it back.
  *
- * The sim silently drops `text` on `create_referral` and `create_task`, so
- * both carry the rationale in `title` instead. `draft_prescription` and
- * `order_test` keep their own evidence field: `indication` and
- * `clinicalDetails` are copied into the sim's `data.text`. See
- * `.claude/skills/nhs-sim/SKILL.md`.
+ * The sim silently drops `text` on `create_referral`, `create_task` and
+ * `save_problem`, so those carry the rationale in `title` instead.
+ * `draft_prescription` and `order_test` keep their own evidence field:
+ * `indication` and `clinicalDetails` are copied into the sim's `data.text`.
+ * See `.claude/skills/nhs-sim/SKILL.md`.
  */
 
-export type SimActionType = 'draft_prescription' | 'create_referral' | 'order_test' | 'create_task'
+export type SimActionType =
+  | 'draft_prescription'
+  | 'create_referral'
+  | 'order_test'
+  | 'create_task'
+  | 'save_problem'
+  | 'save_allergy'
 
 const ACTION_TYPE: Record<RecommendationKind, SimActionType> = {
   prescription: 'draft_prescription',
@@ -19,6 +25,8 @@ const ACTION_TYPE: Record<RecommendationKind, SimActionType> = {
   screening: 'create_task',
   immunisation: 'create_task',
   task: 'create_task',
+  problem: 'save_problem',
+  allergy: 'save_allergy',
 }
 
 const TITLE_MAX = 500
@@ -136,6 +144,25 @@ export function buildSimAction(
         type,
         patientId: simPatientId,
         title: titleCarryingEvidence(rec),
+        text: rec.rationale,
+      }
+
+    // Both land on the record as history, not as work to do. The sim drops
+    // `text` on save_problem, so the evidence rides in the title there and the
+    // two cases stay apart rather than sharing create_task's branch.
+    case 'save_problem':
+      return {
+        type,
+        patientId: simPatientId,
+        title: titleCarryingEvidence(rec),
+        text: rec.rationale,
+      }
+
+    case 'save_allergy':
+      return {
+        type,
+        patientId: simPatientId,
+        title: truncate(rec.title, TITLE_MAX),
         text: rec.rationale,
       }
   }

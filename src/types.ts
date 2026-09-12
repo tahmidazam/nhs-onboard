@@ -105,6 +105,9 @@ export type RecommendationKind =
   | 'immunisation'
   | 'test'
   | 'task'
+  /** Reconstructed history, written onto the GP record rather than actioned. */
+  | 'problem'
+  | 'allergy'
 
 /** Sim site that owns the resource once written back. */
 export type SimTarget = 'pharmacy' | 'referrals' | 'diagnostics' | 'gp'

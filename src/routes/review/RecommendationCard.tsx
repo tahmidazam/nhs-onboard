@@ -14,6 +14,8 @@ const KIND_COPY: Record<RecommendationKind, string> = {
   immunisation: 'Immunisation plan',
   test: 'Test request',
   task: 'Task',
+  problem: 'Problem for the record',
+  allergy: 'Allergy for the record',
 }
 
 const TARGET_COPY: Record<SimTarget, string> = {

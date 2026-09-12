@@ -231,6 +231,7 @@ describe('a re-run of the pack on an unchanged profile', () => {
    * orphans the clinician's approved or dismissed rows.
    */
   const EXPECTED_KEYS = [
+    'nhs-record-condition:type2diabetesmellitus',
     'nhs-screen-diabetic-eye:invite',
     'ukhsa-country-hepb:serology',
     'ukhsa-imm-mmr-under-12-months:top-up',
