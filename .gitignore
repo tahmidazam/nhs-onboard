@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.local
+.convex
+
+# Large datasets — fetched by `npm run data:fetch`
+data/idd.sqlite
+data/indian_medicines.csv
+data/bnf.csv
+.DS_Store
