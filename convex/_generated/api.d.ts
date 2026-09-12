@@ -9,6 +9,9 @@
  */
 
 import type * as brands from "../brands.js";
+import type * as call from "../call.js";
+import type * as http from "../http.js";
+import type * as meds from "../meds.js";
 
 import type {
   ApiFromModules,
@@ -18,6 +21,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   brands: typeof brands;
+  call: typeof call;
+  http: typeof http;
+  meds: typeof meds;
 }>;
 
 /**

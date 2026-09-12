@@ -12,9 +12,6 @@ import { internal } from './_generated/api'
 
 const VAPI_ORIGIN = 'https://api.vapi.ai'
 
-/** Long enough for someone to find a ringing phone in a noisy room. */
-const CUSTOMER_JOIN_TIMEOUT_SECONDS = 45
-
 export const openGaps = internalQuery({
   args: { patientId: v.id('patients') },
   returns: v.array(v.object({ _id: v.id('gaps'), question: v.string() })),
@@ -167,7 +164,6 @@ export const place = action({
         phoneNumberId,
         customer: { number },
         assistantOverrides: {
-          customerJoinTimeoutSeconds: CUSTOMER_JOIN_TIMEOUT_SECONDS,
           /** The dashboard prompt reads {{goals}}. Keep the placeholder in step with it. */
           variableValues: {
             goals: gaps.map((g, i) => `${i + 1}. ${g.question}`).join('\n') || 'No open questions.',
