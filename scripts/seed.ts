@@ -15,6 +15,9 @@ const prod = process.argv.includes('--prod')
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
 
+/** Mirrors genericKeyFor in convex/brands.ts. Drives the country-plus-generic reverse lookup. */
+const genericKey = (generic: string) => norm(generic.split(/[ (]/)[0])
+
 function parseCsv(text: string): Record<string, string>[] {
   const rows: string[][] = []
   let row: string[] = []
@@ -67,7 +70,14 @@ function brandsFromCsv(
   const rows = parseCsv(readFileSync(path, 'utf8'))
     .map((r) => ({ brand: (r[brandColumn] ?? '').trim(), generic: (r[genericColumn] ?? '').trim() }))
     .filter((r) => r.brand && r.generic)
-    .map((r) => ({ key: norm(r.brand), brand: r.brand, generic: r.generic, country, via }))
+    .map((r) => ({
+      key: norm(r.brand),
+      brand: r.brand,
+      generic: r.generic,
+      country,
+      via,
+      genericKey: genericKey(r.generic),
+    }))
     .filter((r) => r.key && !seen.has(r.key) && seen.add(r.key))
   add('brands', rows)
   console.log(`${via}: ${rows.length}`)
@@ -87,7 +97,14 @@ brandsFromCsv('data/indian_medicines.csv', 'name', 'short_composition1', 'IN', '
     const seen = new Set<string>()
     const rows = parseCsv(readFileSync(path, 'utf8'))
       .filter((r) => r.key && r.generic)
-      .map((r) => ({ key: r.key, brand: r.brand, generic: r.generic, country: 'XX', via: 'idd' }))
+      .map((r) => ({
+        key: r.key,
+        brand: r.brand,
+        generic: r.generic,
+        country: 'XX',
+        via: 'idd',
+        genericKey: genericKey(r.generic),
+      }))
       .filter((r) => !seen.has(r.key) && seen.add(r.key))
     add('brands', rows)
     console.log(`idd: ${rows.length}`)
