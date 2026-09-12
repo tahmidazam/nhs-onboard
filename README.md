@@ -148,9 +148,20 @@ In the Convex dashboard, open Settings, Deploy Keys, and generate a
 **production** key. Add it to Vercel along with the browser variables:
 
 ```bash
-pnpm dlx vercel env add CONVEX_DEPLOY_KEY production
-pnpm dlx vercel env add VITE_VAPI_PUBLIC_KEY production
-pnpm dlx vercel env add VITE_VAPI_ASSISTANT_ID production
+pnpm dlx vercel env add CONVEX_DEPLOY_KEY
+pnpm dlx vercel env add VITE_VAPI_PUBLIC_KEY
+pnpm dlx vercel env add VITE_VAPI_ASSISTANT_ID
+```
+
+Each prompts for the value, then the environments. Select Production and
+Preview for all three, otherwise every pull request preview fails to build.
+Pass only the name on the command line. A second positional argument is read as
+the value, which stores the key under the wrong name.
+
+Then deploy. `vercel redeploy` rebuilds an earlier commit, so use:
+
+```bash
+pnpm dlx vercel --prod
 ```
 
 Connect the GitHub repo in the Vercel dashboard so pushes to `main` deploy
