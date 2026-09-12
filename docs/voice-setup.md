@@ -106,10 +106,42 @@ Defined in the dashboard, not in code, so it can be retuned without a deploy.
 | Transcriber | multilingual, so the language can change mid-call |
 | customerJoinTimeoutSeconds | 45, since 15 is short on conference wifi |
 
-The system prompt must contain `{{patientName}}`, `{{patientAge}}`,
-`{{patientDob}}` and `{{goals}}`. Without them the call still runs and quietly
-ignores which patient it is about, asking whatever the prompt hardcodes.
-`docs/vapi-system-prompt.md` holds the version those variables match.
+### The system prompt
+
+`docs/vapi-system-prompt.md` is the prompt and nothing else, so paste all of it
+into the system prompt field. It deliberately carries no headings about itself,
+no variable table and no setup notes: anything in that file reaches the model as
+instructions, and a prompt that opens by explaining where it should be pasted is
+a prompt telling the assistant about a repository.
+
+Four variables are filled per call, from the patient's row and their open gaps.
+Renaming one means renaming it in `convex/call.ts` too.
+
+| Variable | Source |
+|---|---|
+| `{{patientName}}` | `patients.name` |
+| `{{patientAge}}` | derived from `patients.birthDate` |
+| `{{patientDob}}` | `patients.birthDate` |
+| `{{goals}}` | the patient's open `gaps`, numbered |
+
+Without those placeholders the call still runs and quietly ignores which patient
+it is about, asking whatever the prompt hardcodes.
+
+### The first message
+
+A separate field in the dashboard, not part of the system prompt. It has to end
+in a question or the patient is left waiting.
+
+```
+Hello, this is the onboarding assistant from Elmwood Surgery. Am I speaking to {{patientName}}?
+```
+
+### Keep gap questions short
+
+`{{goals}}` is rendered verbatim, so a rule that writes a long question with a
+list of examples in it produces a long spoken question. The prompt tells the
+assistant to find the single thing being asked and leave the examples out, but a
+gap written as one short sentence is better than one that has to be salvaged.
 
 ## Something to call about
 
